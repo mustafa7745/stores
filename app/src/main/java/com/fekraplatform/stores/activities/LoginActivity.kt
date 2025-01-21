@@ -83,10 +83,12 @@ class LoginActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         Log.e("subsecribed??",requestServer.serverConfig.getSubscribeApp())
-        stateController.startRead()
+
         if (!requestServer.serverConfig.isSetSubscribeApp())
             subscribeToAppTobic()
         if (!requestServer.serverConfig.isSetRemoteConfig()){
+            stateController.startRead()
+//            Log.e("serverConfig erer",requestServer.serverConfig.getRemoteConfig().toString())
 
             requestServer.initVarConfig({
                 stateController.errorStateRead("enable get remote config")
@@ -96,8 +98,15 @@ class LoginActivity : ComponentActivity() {
                 SingletonRemoteConfig.remoteConfig = requestServer.serverConfig.getRemoteConfig()
                 if (aToken.isSetAccessToken()){
                     gotoDashboard()
+                }else{
+                    stateController.successState()
                 }
             }
+        }else{
+            if (aToken.isSetAccessToken()){
+                gotoDashboard()
+            }
+
         }
 
 

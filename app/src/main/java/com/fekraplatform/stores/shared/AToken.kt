@@ -1,5 +1,6 @@
 package com.fekraplatform.stores.shared
 import GetStorage
+import android.util.Log
 import com.fekraplatform.stores.models.AccessToken
 
 class AToken {
@@ -12,7 +13,9 @@ class AToken {
         getStorage.setData(Accesstoken, data)
     }
     fun getAccessToken(): AccessToken {
-        return MyJson.IgnoreUnknownKeys.decodeFromString(getStorage.getData(Accesstoken))
+        val token = MyJson.IgnoreUnknownKeys.decodeFromString<AccessToken>(getStorage.getData(Accesstoken))
+        Log.e("token",token.toString())
+        return  token
     }
     fun isSetAccessToken():Boolean{
         return try {

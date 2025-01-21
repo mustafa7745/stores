@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,12 +18,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardColors
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,25 +45,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.fekraplatform.stores.activities.CartPreviewActivity
+import com.fekraplatform.stores.models.OrderAmount
+import com.fekraplatform.stores.models.Product
+import com.fekraplatform.stores.models.ProductOption
 import com.fekraplatform.stores.models.Store
+import com.fekraplatform.stores.models.StoreProduct
 import com.fekraplatform.stores.shared.ADControll
-import com.fekraplatform.stores.shared.IconRemove
+import com.fekraplatform.stores.shared.CustomIcon
 import com.fekraplatform.stores.shared.MyJson
 import com.fekraplatform.stores.shared.ReadMoreText
 import com.fekraplatform.stores.shared.RequestServer
 import com.fekraplatform.stores.shared.SingletonRemoteConfig
 import com.fekraplatform.stores.shared.SingletonStores
 import com.fekraplatform.stores.ui.theme.StoresTheme
+//import coil.compose.AsyncImage
+import kotlinx.serialization.Serializable
+
 data class CartProduct(
     val product: Product,
     var cartProductOption:List<CartProductOption>
 )
 data class CartProductOption(
-    val productOption:ProductOption,
+    val productOption: ProductOption,
     var count : MutableState<Int> = mutableIntStateOf(0)
 )
 data class StoreCartProduct(
-    val store:Store,
+    val store: Store,
     var cartProducts:MutableState<List<CartProduct>>
 )
 
@@ -70,7 +80,7 @@ object SingletonCart {
     private var storeCartProducts by mutableStateOf<List<StoreCartProduct>>(listOf())
 
     // Add a product to the cart
-    fun addProductToCart(store: Store,product: Product, productOptions: ProductOption) {
+    fun addProductToCart(store: Store, product: Product, productOptions: ProductOption) {
         // Find the existing cart product (if any)
         val existingStoreCartProduct = storeCartProducts.find { it.store == store }
         if (existingStoreCartProduct != null){
@@ -126,7 +136,7 @@ object SingletonCart {
         return existingCartProduct
     }
 
-    fun decrement(store: Store,product: Product, productOption: ProductOption) {
+    fun decrement(store: Store, product: Product, productOption: ProductOption) {
         // Find the existing cart product (if any)
         val existingStoreCartProduct = storeCartProducts.find { it.store == store }
         if (existingStoreCartProduct != null){
@@ -146,7 +156,7 @@ object SingletonCart {
                             if (existingOption.count.value >= 1){
                                 existingOption.count.value -=1
                                 if (existingOption.count.value == 0){
-                                    if (checkIfHaveOptions(store,product)==1){
+                                    if (checkIfHaveOptions(store,product) ==1){
                                         removeProductFromCart(store,product)
                                     }
                                     else{
@@ -162,7 +172,7 @@ object SingletonCart {
         }
     }
 
-    fun ifOptionInCart(store: Store,product: Product, productOptions: ProductOption): Boolean {
+    fun ifOptionInCart(store: Store, product: Product, productOptions: ProductOption): Boolean {
         val existingStoreCartProduct = storeCartProducts.find { it.store == store }
         if (existingStoreCartProduct != null){
             return existingStoreCartProduct.cartProducts.value.find { it.cartProductOption.find { it.productOption == productOptions } != null } != null
@@ -205,7 +215,7 @@ object SingletonCart {
     fun removeProductFromCart(store: Store, product: Product) {
         val existingStoreCartProduct = storeCartProducts.find { it.store == store }
         if (existingStoreCartProduct != null){
-           existingStoreCartProduct.cartProducts.value = existingStoreCartProduct.cartProducts.value.filter { it.product != product }
+            existingStoreCartProduct.cartProducts.value = existingStoreCartProduct.cartProducts.value.filter { it.product != product }
         }
 
     }
@@ -263,32 +273,63 @@ object SingletonCart {
         if (existingStoreCartProduct != null){
             return existingStoreCartProduct. cartProducts.value
         }
-     return  emptyList<CartProduct>()
+        return  emptyList<CartProduct>()
     }
-    fun getAllCartProductsSum(store: Store): Double {
+    fun getAllCartProductsSum(store: Store): String {
+        val list = arrayListOf<OrderAmount>()
         var sum = 0.0
         val existingStoreCartProduct = storeCartProducts.find { it.store == store }
         if (existingStoreCartProduct != null){
-
             existingStoreCartProduct. cartProducts.value.forEach { cartProduct: CartProduct ->
                 cartProduct.cartProductOption.forEach { productOption ->
-                    sum += productOption.productOption.price.toDouble() * productOption.count.value.toDouble()
+                    if (list.find { it.id == productOption.productOption.currency.id } != null){
+                        list.find { it.id == productOption.productOption.currency.id }!!.amount += productOption.productOption.price.toDouble() * productOption.count.value.toDouble()
+                    }
+                    else{
+                        list.add(
+                            OrderAmount(productOption.productOption.currency.id,productOption.productOption.currency.name,productOption.productOption.price.toDouble() * productOption.count.value.toDouble()))
+
+                    }
+//                    sum += productOption.productOption.price.toDouble() * productOption.count.value.toDouble()
                 }
             }
-            return  sum
+
         }
-        return  sum
+        val f = list.joinToString(
+            separator = " و "
+        ) {  formatPrice(it.amount.toString()) +" "+ it.currencyName }
+        return f
     }
+
+    fun getProductsIdsWithQnt():List<OrderProductWithQntModel>{
+        val existingStoreCartProduct = storeCartProducts.find { it.store == SingletonStores.selectedStore }
+        val list  = emptyList<OrderProductWithQntModel>().toMutableList()
+        if (existingStoreCartProduct != null){
+            existingStoreCartProduct.cartProducts.value.forEach {cartProduct->
+                cartProduct.cartProductOption.forEach { productOption ->
+                    list.add(OrderProductWithQntModel(productOption.productOption.storeProductId,productOption.count.value))
+                }
+            }
+        }
+        return list
+    }
+
+
 
     // Clear the cart
 //    fun clearCart() {
 //        cartProducts = listOf()
 //    }
 }
+@Serializable
+data class OrderProductWithQntModel (
+    val id: Int,
+    val qnt: Int,
+)
 
 
 class AddToCartActivity : ComponentActivity() {
-    lateinit var storeProduct:StoreProduct
+    lateinit var storeProduct: StoreProduct
     val requestServer = RequestServer(this)
 
     @OptIn(ExperimentalFoundationApi::class)
@@ -311,9 +352,20 @@ class AddToCartActivity : ComponentActivity() {
 
 
 
+        enableEdgeToEdge()
         setContent {
-            StoresTheme {
-                MainContent()
+            StoresTheme  {
+                Column (Modifier.safeDrawingPadding()){
+//                    CustomCard(modifierBox = Modifier){
+//                        CustomRow2{
+//                            CustomIcon(Icons.AutoMirrored.Default.ArrowBack, border = true) {
+//                                finish()
+//                            }
+//                            Text(storeProduct.product.productName)
+//                        }
+//                    }
+                    MainContent()
+                }
             }
         }
     }
@@ -331,6 +383,13 @@ class AddToCartActivity : ComponentActivity() {
             LazyColumn(
                 Modifier.padding(bottom = 50.dp),
                 content = {
+                    stickyHeader {
+                        Row(Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(8.dp)) {
+                            CustomIcon(Icons.AutoMirrored.Default.ArrowBack, border = true) {
+                                finish()
+                            }
+                        }
+                    }
                     item {
                         val pagerState =
                             rememberPagerState(pageCount = { storeProduct.product.images.size })
@@ -342,50 +401,54 @@ class AddToCartActivity : ComponentActivity() {
                                     .fillMaxWidth(),
                                 contentScale = ContentScale.Inside
                             )
-                        else
-                            HorizontalPager(
-                                pagerState,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1F)
-                            ) { i ->
-                                Card(
-                                    Modifier
-                                        .fillMaxSize().padding(5.dp)
-                                        .border(
-                                            1.dp,
-                                            MaterialTheme.colorScheme.primary,
-                                            RoundedCornerShape(
-                                                16.dp
+                        else{
+                            Box (modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1F)){
+                                HorizontalPager(
+                                    pagerState,
+
+                                    ) { i ->
+
+                                    Card(
+                                        Modifier
+                                            .fillMaxSize().padding(5.dp)
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.primary,
+                                                RoundedCornerShape(
+                                                    16.dp
+                                                )
                                             )
+                                            .clip(
+                                                RoundedCornerShape(
+                                                    16.dp
+                                                )
+                                            ),
+//                                    colors = CardColors(
+//                                        containerColor = Color.White,
+//                                        contentColor = Color.Black,
+//                                        disabledContainerColor = Color.Blue,
+//                                        disabledContentColor = Color.Cyan
+//                                    )
+                                    ) {
+
+                                        CustomImageView(
+                                            context = this@AddToCartActivity,
+                                            imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL+
+                                                    SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT+
+                                                    storeProduct.product.images[i].image,
+                                            okHttpClient = requestServer.createOkHttpClientWithCustomCert(),
                                         )
-                                        .clip(
-                                            RoundedCornerShape(
-                                                16.dp
-                                            )
-                                        )
-                                        .padding(5.dp),
-                                    colors = CardColors(
-                                        containerColor = Color.White,
-                                        contentColor = Color.Black,
-                                        disabledContainerColor = Color.Blue,
-                                        disabledContentColor = Color.Cyan
-                                    )
-                                ) {
-                                    Log.e("uurr", SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL+storeProduct.product.images[i].image)
-                                    CustomImageView(
-                                        modifier = Modifier
-                                            .fillMaxWidth(),
-                                        context = this@AddToCartActivity,
-                                        imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL+
-                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT+
-                                                storeProduct.product.images[i].image,
-                                        okHttpClient = requestServer.createOkHttpClientWithCustomCert()
-                                    )
+//                                    Log.e("uurr", SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL+storeProduct.product.images[i].image)
+
+
+                                    }
 
                                 }
-
                             }
+                        }
+
                     }
 
                     item {
@@ -394,7 +457,7 @@ class AddToCartActivity : ComponentActivity() {
                                 .fillMaxWidth()
                                 .padding(5.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 modifier = Modifier.padding(8.dp),
@@ -403,53 +466,65 @@ class AddToCartActivity : ComponentActivity() {
                                 fontSize = 18.sp,
                                 color = Color.Black
                             )
-                            if(SingletonCart.ifProductInCart( SingletonStores.selectedStore,storeProduct.product))
-                            IconRemove {
-                                SingletonCart.removeProductFromCart( SingletonStores.selectedStore,storeProduct.product)
-                            }
+//                            if(SingletonCart.ifProductInCart(
+//                                    SingletonStores.selectedStore,
+//                                    storeProduct.product
+//                                )
+//                            )
+//                            IconRemove {
+//                                SingletonCart.removeProductFromCart(
+//                                    SingletonStores.selectedStore,
+//                                    storeProduct.product
+//                                )
+//                            }
 
                         }
                     }
                     if (storeProduct.product.productDescription != null)
                         item {
                             HorizontalDivider()
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(5.dp)
-                            ) {
-                            }
-                            ReadMoreText(storeProduct.product.productDescription.toString())
+
+
                         }
-                        item {
-                            Text(
-                                modifier = Modifier.padding(8.dp),
-                                text = "الخيارات: ",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            storeProduct.options.forEach { option->
-                                Row (
-                                    Modifier.fillMaxWidth().padding(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ){
-                                    Text(option.name)
-                                    Text(
-                                        modifier = Modifier.padding(8.dp),
-                                        text = formatPrice(option.price) + " ريال ",
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    ADControll(storeProduct.product,option)
-                                }
+                    item {
+                        Text(
+                            modifier = Modifier.padding(8.dp),
+                            text = "الخيارات: ",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        storeProduct.options.forEach { option->
+                            Row (
+                                Modifier.fillMaxWidth().padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ){
+                                Text(option.name)
+                                Text(
+                                    modifier = Modifier.padding(8.dp),
+                                    text = formatPrice(option.price) +" "+ option.currency.name,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                ADControll(storeProduct.product,option)
                             }
                         }
+                    }
+                    item {
+                        Text(
+                            modifier = Modifier.padding(8.dp),
+                            text = "الوصف : ",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        ReadMoreText(storeProduct.product.productDescription.toString())
+                    }
                 })
 
             Column (
-              modifier =   Modifier
+                modifier =   Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(50.dp)

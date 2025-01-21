@@ -10,7 +10,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
+import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,7 +28,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +44,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,20 +62,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.fekraplatform.storemanger.shared.AppInfoMethod
-import com.fekraplatform.stores.Product
-import com.fekraplatform.stores.ProductOption
 import com.fekraplatform.stores.R
 import com.fekraplatform.stores.SingletonCart
-import com.fekraplatform.stores.StoreProduct
 import com.fekraplatform.stores.application.MyApplication
+import com.fekraplatform.stores.models.Product
+import com.fekraplatform.stores.models.ProductOption
 import com.fekraplatform.stores.models.Store
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
@@ -107,6 +115,9 @@ fun MainCompose1(
             Toast.makeText(activity, stateController.errorAUD.value, Toast.LENGTH_SHORT).show()
             stateController.isErrorAUD.value = false
             stateController.errorAUD.value = ""
+        }
+        if (stateController.isShowMessage.value) {
+            Toast.makeText(activity, stateController.message.value, Toast.LENGTH_SHORT).show()
         }
         if (stateController.isSuccessRead.value) {
             verticalArrangement = Arrangement.Top
@@ -425,7 +436,7 @@ fun IconRemove( onClick: () -> Unit) {
     }
 }
 @Composable
-fun ADControll(product: Product,option: ProductOption) {
+fun ADControll(product: Product, option: ProductOption) {
     val vibrator =MyApplication.AppContext.getSystemService(VIBRATOR_SERVICE) as Vibrator
     Row(
         modifier = Modifier
@@ -542,4 +553,131 @@ fun formatNumber(number: Int): String {
 
 object SingletonRemoteConfig{
     lateinit var remoteConfig: VarRemoteConfig
+}
+
+@Composable
+fun CustomRow2(content: @Composable() (RowScope.() -> Unit)){
+    Row  (Modifier.fillMaxWidth().padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ){
+        content()
+    }
+}
+@Composable
+fun CardView(button : @Composable()()->Unit = {},title:String, content: @Composable() (ColumnScope.() -> Unit)) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.Start,
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                Text(
+                    text = title,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                button()
+
+            }
+
+            HorizontalDivider(Modifier.padding(10.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+fun OutLinedButton( modifier : Modifier = Modifier
+    .border(
+        1.dp,
+        MaterialTheme.colorScheme.primary,
+        RoundedCornerShape(
+            16.dp
+        )
+    )
+    .clip(
+        RoundedCornerShape(
+            16.dp
+        )
+    ),text:String,onClick: () -> Unit) {
+    Button(
+        onClick = onClick
+        ,
+//        colors = ButtonDefaults.buttonColors(
+//            containerColor = Color.White, // Background color
+//        ),
+        modifier = modifier ,
+    ) {
+
+        Text(
+            text = text,
+            fontSize = 14.sp,
+        )
+    }
+}
+@Composable
+fun MyTextField(
+    hinty:String = "ابحث هنا",
+    height:Int = 140,
+    onChange: (String) -> Unit) {
+    AndroidView(factory = { context ->
+        EditText(context).apply {
+            hint = hinty
+            background = null
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height)
+//            inputType = InputType.TYPE_TEXT_FLAG_MULTI_LINE
+
+
+        }
+    },
+        update = { editText ->
+            editText.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(
+                    p0: CharSequence?,
+                    p1: Int,
+                    p2: Int,
+                    p3: Int
+                ) {
+
+                }
+
+                override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
+                    onChange(p0.toString())
+//                        ttt = p0.toString()
+                }
+
+                override fun afterTextChanged(p0: Editable?) {
+
+                }
+
+            })
+
+        }, modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.primary,
+                RoundedCornerShape(
+                    10.dp
+                )
+            )
+            .clip(
+                RoundedCornerShape(
+                    10.dp
+                )
+            )
+    )
 }

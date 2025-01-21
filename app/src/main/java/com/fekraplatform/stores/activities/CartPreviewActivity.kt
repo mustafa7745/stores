@@ -1,11 +1,15 @@
 package com.fekraplatform.stores.activities
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,14 +21,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -48,50 +58,115 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.fekraplatform.stores.AddToCartActivity
 import com.fekraplatform.stores.CartProduct
+import com.fekraplatform.stores.MainCompose1
+import com.fekraplatform.stores.R
 import com.fekraplatform.stores.SingletonCart
 import com.fekraplatform.stores.formatPrice
+import com.fekraplatform.stores.models.DeliveryOption
+import com.fekraplatform.stores.models.Location
+import com.fekraplatform.stores.models.PaymentModel
+import com.fekraplatform.stores.models.PaymentType
 import com.fekraplatform.stores.shared.ADControll
+import com.fekraplatform.stores.shared.CardView
 import com.fekraplatform.stores.shared.CustomCard
+import com.fekraplatform.stores.shared.CustomIcon
 import com.fekraplatform.stores.shared.CustomImageView
+import com.fekraplatform.stores.shared.CustomRow2
 import com.fekraplatform.stores.shared.IconDelete
 import com.fekraplatform.stores.shared.MyJson
+import com.fekraplatform.stores.shared.MyTextField
+import com.fekraplatform.stores.shared.OutLinedButton
 import com.fekraplatform.stores.shared.RequestServer
 import com.fekraplatform.stores.shared.SingletonRemoteConfig
 import com.fekraplatform.stores.shared.SingletonStores
 import com.fekraplatform.stores.shared.StateController
 import com.fekraplatform.stores.shared.builderForm3
 import com.fekraplatform.stores.ui.theme.StoresTheme
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.encodeToJsonElement
 
 class CartPreviewActivity : ComponentActivity() {
     private var locations by mutableStateOf<List<Location>>(emptyList())
+    private var paymentsTypes by mutableStateOf<List<PaymentType>>(emptyList())
     private val stateController = StateController()
     var selectedLocation by mutableStateOf<Location?>(null)
 
     var isShowReadLocations by mutableStateOf(false)
     val requestServer = RequestServer(this)
     var cartView by mutableStateOf(true)
+    var isShowSelectPaymentMethod by mutableStateOf(false)
+    var isShowShowPaymentTypes by mutableStateOf(false)
+    var selectedPaymentMethod by mutableStateOf<PaymentModel?>(null)
+
+    var paidCode by mutableStateOf<String>("")
+
+
+    val list = listOf<PaymentModel>(
+        PaymentModel("عند التوصيل", R.drawable.ondelivery.toString(), 0),
+//        PaymentModel("من المحفظة", R.drawable.wallet, 2),
+        PaymentModel("دفع الكتروني", R.drawable.epay.toString(), 1)
+    )
+
+    val radioOptions = listOf(
+        DeliveryOption(1,"التوصيل للموقع"),
+        DeliveryOption(2,"الاستلام من المتجر")
+    )
+
+
+    var selectedOption by mutableStateOf(radioOptions[0])
+    var title by mutableStateOf("")
+
+    fun onOptionSelected(newOption: DeliveryOption) {
+        selectedOption = newOption
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        stateController.successState()
+
+        enableEdgeToEdge()
         setContent {
             BackHand()
             //
 
-            StoresTheme {
+            StoresTheme  {
                 Column(
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxSize().safeDrawingPadding(),
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    CustomCard(modifierBox = Modifier) {
+                        CustomRow2{
+                            CustomIcon(Icons.AutoMirrored.Default.ArrowBack, border = true) {
+                                if (cartView) {
+                                    finish()
+                                } else
+                                    cartView = true
+                            }
+                            Text(title)
+                        }
+                    }
                     if (cartView) {
-                        Text("السلة")
-                        HorizontalDivider()
+                        title = "عرض السلة"
+//                            Text("السلة")
+//                            HorizontalDivider()
                         MainContentCartPreview()
                     } else {
-                        Text("الطلب")
-                        HorizontalDivider()
-                        MainContentOrderPreview()
+                        MainCompose1(0.dp, stateController, this@CartPreviewActivity, {
+
+                        }) {
+                            title = "تأكيد الطلب"
+//                                Text("الطلب",)
+                            MainContentOrderPreview()
+                        }
+                        if (isShowReadLocations) modalShowLocations()
+                        if (isShowSelectPaymentMethod) ChoosePaymentMethod()
+                        if (isShowShowPaymentTypes) ChoosePaymentTypes()
                     }
                 }
             }
@@ -128,7 +203,7 @@ class CartPreviewActivity : ComponentActivity() {
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(SingletonStores.selectedStore.name)
+                                    Text(SingletonStores.selectedStore.name,Modifier.padding(8.dp))
                                     CustomImageView(
                                         modifier = Modifier
                                             .size(50.dp)
@@ -151,7 +226,7 @@ class CartPreviewActivity : ComponentActivity() {
                                     Text(
                                         "الاجمالي : " + SingletonCart.getAllCartProductsSum(
                                             SingletonStores.selectedStore
-                                        )
+                                        ),Modifier.padding(8.dp)
                                     )
                                 }
                                 HorizontalDivider()
@@ -159,7 +234,7 @@ class CartPreviewActivity : ComponentActivity() {
                                     onClick = {
                                         cartView = false
                                     },
-                                    modifier = Modifier.padding(top = 4.dp).fillMaxWidth()
+                                    modifier = Modifier.padding( 8.dp).fillMaxWidth()
                                 ) {
                                     Text(text = "متابعة")
                                 }
@@ -182,25 +257,26 @@ class CartPreviewActivity : ComponentActivity() {
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Log.e(
-                                        "image", SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
-                                                cartProduct.product.images.first()
-                                    )
+//                                    Log.e(
+//                                        "image", SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
+//                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
+//                                                cartProduct.product.images.first()
+//                                    )
                                     Text(cartProduct.product.productName)
-                                    CustomImageView(
-                                        modifier = Modifier
-                                            .size(50.dp)
-                                            .padding(8.dp)
-                                            .clickable {
+                                    if (cartProduct.product.images.isNotEmpty())
+                                        CustomImageView(
+                                            modifier = Modifier
+                                                .size(50.dp)
+                                                .padding(8.dp)
+                                                .clickable {
 
-                                            },
-                                        context = this@CartPreviewActivity,
-                                        imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
-                                                cartProduct.product.images.first().image,
-                                        okHttpClient = requestServer.createOkHttpClientWithCustomCert()
-                                    )
+                                                },
+                                            context = this@CartPreviewActivity,
+                                            imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
+                                                    SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
+                                                    cartProduct.product.images.first().image,
+                                            okHttpClient = requestServer.createOkHttpClientWithCustomCert()
+                                        )
 
                                 }
                                 HorizontalDivider()
@@ -213,7 +289,7 @@ class CartPreviewActivity : ComponentActivity() {
                                         Text(cartProductOption.productOption.name)
                                         Text(
                                             modifier = Modifier.padding(8.dp),
-                                            text = formatPrice(cartProductOption.productOption.price) + " ريال ",
+                                            text = formatPrice(cartProductOption.productOption.price) +" "+ cartProductOption.productOption.currency.name ,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -222,7 +298,6 @@ class CartPreviewActivity : ComponentActivity() {
                                             cartProductOption.productOption
                                         )
                                     }
-
                                 }
                             }
 
@@ -234,22 +309,47 @@ class CartPreviewActivity : ComponentActivity() {
     @Composable
     private fun MainContentOrderPreview() {
 
-        val radioOptions = listOf(DeliveryOption(1,"التوصيل للموقع"),DeliveryOption(2,"الاستلام من المتجر"))
-        val (selectedOption, onOptionSelected) = remember { mutableStateOf(radioOptions[0]) }
+
+        Button(
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            onClick = {
+                if (selectedOption.id == 1){
+                    if (selectedLocation != null){
+
+                        checkPaymentAndConfirm()
+
+                    }else {
+                        ShowLocations()
+                        stateController.showMessage("يجب تحديد موقع للتوصيل")
+                    }
+                }else{
+                    checkPaymentAndConfirm()
+                }
+
+            }) {
+            Text("تأكيد الطلب")
+        }
+
 
         LazyColumn(
             Modifier.padding(bottom = 50.dp),
             content = {
                 item {
                     CustomCard(modifierBox = Modifier) {
-                        Text("خيار استلام الطلب")
                         Column(Modifier.selectableGroup()) {
+                            Text("خيار استلام الطلب", modifier = Modifier.padding(14.dp))
                             radioOptions.forEach { text ->
                                 Row(
                                     Modifier.fillMaxWidth().height(56.dp)
                                         .selectable(
                                             selected = (text == selectedOption),
-                                            onClick = { onOptionSelected(text) },
+                                            onClick = {
+                                                if (selectedOption.id == 2 ){
+                                                    selectedLocation = null
+                                                }
+                                                onOptionSelected(text)
+
+                                            },
                                             role = Role.RadioButton
                                         ).padding(horizontal = 16.dp),
                                     verticalAlignment = Alignment.CenterVertically
@@ -263,24 +363,133 @@ class CartPreviewActivity : ComponentActivity() {
                     }
                 }
                 if (selectedOption.id == 1)
-                item {
-                    HorizontalDivider()
-                    Button(
-                        modifier = Modifier.fillMaxWidth().padding(8.dp),
-                        onClick = {
-                            if (locations.isEmpty()) {
-                                readLocation()
+                    item {
+                        HorizontalDivider()
+                        if (selectedLocation != null){
+                            CustomCard(modifierBox = Modifier) {
+                                Text("توصيل الى:")
+                                Text(selectedLocation!!.street)
                             }
-                    }) {
-                        Text(if (selectedLocation == null)"اختيار موقع" else "تغيير الموقع")
+                        }
+                        Button(
+                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            onClick = {
+                                ShowLocations()
+                            }) {
+                            Text(if (selectedLocation == null)"اختيار موقع" else "تغيير الموقع")
+                        }
+                    }
+                item {
+                    CardView({
+                        OutLinedButton(
+                            text = if (selectedPaymentMethod != null) "تغيير" else "تحديد"
+                        ) {
+                            isShowSelectPaymentMethod = true
+                        }
+
+                    },"طريقة الدفع")
+                    {
+                        if (selectedPaymentMethod != null )
+                            Row (
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(5.dp),
+                                horizontalArrangement = Arrangement.Start,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ){
+                                Icon(
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    imageVector = Icons.Outlined.CheckCircle,
+                                    contentDescription = ""
+                                )
+
+                                if (selectedPaymentMethod!!.id != 0){
+                                    Row () {
+                                        AsyncImage(
+                                            modifier = Modifier
+                                                .size(50.dp)
+                                                .padding(10.dp),
+                                            model = selectedPaymentMethod!!.image,
+                                            contentDescription = null
+                                        )
+                                    }
+                                    MyTextField(
+                                        hinty = "ادخل كود الشراء هنا"
+                                    ) {
+                                        paidCode = it
+                                    }
+
+                                }
+
+
+
+                                Text(
+                                    modifier = Modifier.padding(start = 8.dp),
+                                    text = selectedPaymentMethod!!.name,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                            }
+//                    Row (
+//                        Modifier
+//                            .fillMaxWidth()
+//                            .padding(5.dp),
+//                        horizontalArrangement = Arrangement.Start,
+//                        verticalAlignment = Alignment.CenterVertically,
+//                    ){
+//
+//                    }
+
+//                    Card (
+//                        Modifier
+//
+//                            .clickable {
+//
+//                            },
+//                    ){
+//                        Box (
+//                            Modifier
+//                                .fillMaxSize()
+//                                .background(MaterialTheme.colorScheme.primary)){
+//                            Text(
+//                                modifier = Modifier.padding(1.dp),
+//
+//                                text = "الدفع الالكتروني؟ تواصل معنا",
+//                                fontSize = 12.sp,
+//                                color = Color.White,
+//                                fontWeight = FontWeight.Bold
+//                            )
+//                        }
+//
+//                    }
+
                     }
                 }
             })
     }
 
+    private fun checkPaymentAndConfirm() {
+        if (selectedPaymentMethod != null) {
+            confirmOrder()
+        } else {
+            isShowSelectPaymentMethod = true
+            stateController.showMessage("يجب تحديد طريقة الدفع")
+        }
+    }
+
+
+    private fun ShowLocations() {
+        if (locations.isEmpty()) {
+            readLocation()
+        } else {
+            isShowReadLocations = true
+        }
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    private fun modalAddMyCategory() {
+    private fun modalShowLocations() {
         ModalBottomSheet(
             onDismissRequest = { isShowReadLocations = false }) {
             Box(
@@ -291,48 +500,26 @@ class CartPreviewActivity : ComponentActivity() {
                 var ids by remember { mutableStateOf<List<Int>>(emptyList()) }
                 LazyColumn(
                     Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    item {
+                        Button(
+                            modifier = Modifier.fillMaxSize().padding(8.dp),
+                            onClick = {
+                                val intent = Intent(
+                                    this@CartPreviewActivity,
+                                    AddLocationActivity::class.java
+                                )
+
+                                addLocationLauncher.launch(intent)
+                                isShowReadLocations = false
+//                            startActivity(intent)
+                            }) { Text("اضافة") }
+                    }
                     item {
                         var sectionName by remember { mutableStateOf("") }
                         Card(Modifier.padding(8.dp)){
-                            Row (Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ){
-                                OutlinedTextField(
-                                    modifier = Modifier.padding(8.dp),
-                                    value = sectionName,
-                                    onValueChange = {
-                                        sectionName = it
-                                    }
-                                )
-                                IconButton(onClick = {
-//                                    addSection(sectionName,{
-//                                        sectionName = ""
-//                                        sections.value += it
-//                                    })
-
-                                }) {
-                                    Icon(
-                                        modifier =
-                                        Modifier
-                                            .border(
-                                                1.dp,
-                                                MaterialTheme.colorScheme.primary,
-                                                RoundedCornerShape(
-                                                    16.dp
-                                                )
-                                            )
-                                            .clip(
-                                                RoundedCornerShape(
-                                                    16.dp
-                                                )
-                                            ),
-                                        imageVector = Icons.Outlined.Add,
-                                        contentDescription = ""
-                                    )
-                                }
-                            }
                             IconDelete(ids) {
 
                             }
@@ -351,9 +538,10 @@ class CartPreviewActivity : ComponentActivity() {
                                 Text(location.street)
                                 Button(
                                     onClick = {
-
+                                        selectedLocation = location
+                                        isShowReadLocations = false
                                     }) {
-                                    Text(location.street) }
+                                    Text("اختيار") }
 
                                 Checkbox(checked = ids.find { it == location.id } != null, onCheckedChange = {
                                     val itemC = ids.find { it == location.id}
@@ -390,11 +578,199 @@ class CartPreviewActivity : ComponentActivity() {
 //            SelectedStore.store.value!! .latLng = latiLng
 //            MyToast(this,"تم بنجاح")
             stateController.successStateAUD()
+
+            isShowReadLocations = true
+        }
+    }
+    fun readPaymentTypes() {
+        stateController.startAud()
+        val body = builderForm3()
+            .addFormDataPart("storeId",SingletonStores.selectedStore.id.toString())
+            .build()
+
+        requestServer.request2(body, "getPaymentTypes", { code, fail ->
+            stateController.errorStateAUD(fail)
+        }
+        ) { data ->
+            val result: List<PaymentType> =
+                MyJson.IgnoreUnknownKeys.decodeFromString(
+                    data
+                )
+
+            paymentsTypes = result
+//            SelectedStore.store.value!! .latLng = latiLng
+//            MyToast(this,"تم بنجاح")
+            stateController.successStateAUD()
+        }
+    }
+
+
+    fun confirmOrder() {
+        stateController.startAud()
+
+        val bodyBuilder = builderForm3()
+            .addFormDataPart("orderProducts", MyJson.MyJson.encodeToJsonElement(SingletonCart.getProductsIdsWithQnt()).toString())
+            .addFormDataPart("storeId", SingletonStores.selectedStore.id.toString())
+
+
+        if (selectedLocation != null) {
+            bodyBuilder.addFormDataPart("locationId", selectedLocation!!.id.toString())
+        }
+        if (selectedPaymentMethod != null){
+            bodyBuilder.addFormDataPart("paid", selectedPaymentMethod!!.id.toString())
+            bodyBuilder.addFormDataPart("paidCode", paidCode)
+        }
+
+        val body = bodyBuilder.build()
+
+
+        requestServer.request2(body, "confirmOrder", { code, fail ->
+            stateController.errorStateAUD(fail)
+        }
+        ) { data ->
+//            val result: List<Location> =
+//                MyJson.IgnoreUnknownKeys.decodeFromString(
+//                    data
+//                )
+
+//            locations= result
+////            SelectedStore.store.value!! .latLng = latiLng
+//            MyToast(this,"تم بنجاح")
+            stateController.showMessage("تم ارسال الطلب بنجاح")
             finish()
+
+//            stateController.successStateAUD()
+//
+//            isShowReadLocations = true
+        }
+    }
+
+
+    private val addLocationLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null && result.data!!.getStringExtra("location") != null) {
+            val location = MyJson.IgnoreUnknownKeys.decodeFromString<Location>(result.data!!.getStringExtra("location")!!)
+            locations += location
+            isShowReadLocations = true
+        }
+    }
+
+    @Composable
+    @OptIn(ExperimentalMaterial3Api::class)
+    private fun ChoosePaymentMethod() {
+        ModalBottomSheet(
+            onDismissRequest = { isShowSelectPaymentMethod = false }) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 10.dp)
+            ) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                ) {
+
+                    itemsIndexed(list) { index, item ->
+                        Card(
+                            Modifier
+                                .padding(8.dp)
+                                .clickable {
+//                                    selectedPaymentMethod = item
+//                                    isShowSelectPaymentMethod = false
+
+                                    if (item.id == 1) {
+                                        isShowShowPaymentTypes = true
+//                                        intentFunWhatsapp()
+                                    } else
+                                        selectedPaymentMethod = item
+                                    isShowSelectPaymentMethod = false
+                                },
+//                            colors = CardColors(
+//                                containerColor = Color.White,
+//                                contentColor = Color.Black,
+//                                disabledContainerColor = Color.Blue,
+//                                disabledContentColor = Color.Cyan
+//                            )
+                        ) {
+                            Column(
+                                Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                AsyncImage(
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .padding(10.dp),
+                                    model = item.image.toInt(),
+                                    contentDescription = null
+                                )
+                                HorizontalDivider(Modifier.padding(5.dp))
+                                Text(item.name, fontSize = 12.sp)
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    @OptIn(ExperimentalMaterial3Api::class)
+    private fun ChoosePaymentTypes() {
+        if (paymentsTypes.isEmpty())readPaymentTypes()
+        ModalBottomSheet(
+            onDismissRequest = { isShowShowPaymentTypes = false }) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 10.dp)
+            ) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                ) {
+
+                    itemsIndexed(paymentsTypes) { index, item ->
+                        Card(
+                            Modifier
+                                .padding(8.dp)
+                                .clickable {
+                                    selectedPaymentMethod = PaymentModel(item.name,item.image,item.id)
+//                                    isShowSelectPaymentMethod = false
+
+//                                    if (item.id == 3) {
+////                                        intentFunWhatsapp()
+//                                    } else
+//                                        selectedPaymentMethod = item
+                                    isShowShowPaymentTypes = false
+                                },
+//                            colors = CardColors(
+//                                containerColor = Color.White,
+//                                contentColor = Color.Black,
+//                                disabledContainerColor = Color.Blue,
+//                                disabledContentColor = Color.Cyan
+//                            )
+                        ) {
+                            Column(
+                                Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                AsyncImage(
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .padding(10.dp),
+                                    model = item.image,
+                                    contentDescription = null
+                                )
+                                HorizontalDivider(Modifier.padding(5.dp))
+                                Text(item.name, fontSize = 12.sp)
+                            }
+
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
-data class DeliveryOption (val id:Int, val name:String)
-data class Location (val id:Int, val street:String)
 

@@ -50,6 +50,7 @@ import com.fekraplatform.stores.models.Home34
 import com.fekraplatform.stores.models.Scp
 import com.fekraplatform.stores.models.StoreCategory1
 import com.fekraplatform.stores.models.StoreCategorySection
+import com.fekraplatform.stores.models.StoreProduct
 import com.fekraplatform.stores.shared.MyJson
 import com.fekraplatform.stores.shared.RequestServer
 import com.fekraplatform.stores.shared.SingletonRemoteConfig
@@ -80,7 +81,6 @@ class MainActivity : ComponentActivity() {
 
     private val home = mutableStateOf<Home34?>(null)
     val selectedSectionStoreCategory = mutableStateOf<StoreCategorySection?>(null)
-    val selectedStoreCategory1 = mutableStateOf<StoreCategory1?>(null)
     val selectedCsp = mutableStateOf<Scp?>(null)
 
     private val products = mutableStateOf<List<StoreProduct>>(listOf())
@@ -181,7 +181,7 @@ class MainActivity : ComponentActivity() {
                     data
                 )
 
-            selectedStoreCategory1.value = home.value!!.storeCategories.first()
+//            selectedStoreCategory1.value = home.value!!.storeCategories.first()
             selectedSectionStoreCategory.value = home.value!!.storeCategoriesSections.first()
             selectedCsp.value = home.value!!.csps.first()
 
@@ -238,145 +238,7 @@ private fun goToAddToCart(
 
         setContent {
             StoresTheme {
-                MainCompose1(
-                    0.dp, stateController ,this,
-                    { read() },
-                ) {
-                    if (home.value!= null)
 
-
-                            LazyRow (Modifier.fillMaxWidth().height(50.dp)){
-                                itemsIndexed(home.value!!.storeCategories){index, item ->
-                                    Button(onClick = {
-                                        selectedStoreCategory1.value = item
-
-//
-//                                        if (home.value!!.storeCategoriesSections.filter { it. == selectedStoreCategory1.value }.firstOrNull() != null)
-                                        selectedSectionStoreCategory.value = home.value!!.storeCategoriesSections.filter { it.storeCategoryId == selectedStoreCategory1.value!!.id }.first()
-                                        selectedCsp.value = home.value!!.csps.filter { it.storeCategorySectionId == selectedSectionStoreCategory.value!!.id }.first()
-
-                                        readProducts()
-                                    }) {
-                                        Text(item.name)
-                                    }
-                                }
-
-                            }
-
-
-                            LazyRow (Modifier.fillMaxWidth().height(50.dp)){
-                                itemsIndexed(home.value!!.storeCategoriesSections.filter { it.storeCategoryId == selectedStoreCategory1.value!!.id }){index, item ->
-                                    Button(onClick = {
-                                        selectedSectionStoreCategory.value = item
-                                    }) {
-                                        Text(item.sectionName)
-                                    }
-                                }
-
-                            }
-
-
-                            LazyRow (Modifier.fillMaxWidth().height(50.dp)){
-                                itemsIndexed(home.value!!.csps.filter { it.storeCategorySectionId == selectedSectionStoreCategory.value!!.id }){ index, item ->
-                                    Button(onClick = {
-                                        selectedCsp.value = item
-                                        readProducts()
-                                    }) {
-                                        Text(item.name)
-                                    }
-                                }
-
-                            }
-
-
-
-                            Text(selectedCsp.value!!.name)
-
-//                        stickyHeader {
-//                            LazyRow (Modifier.fillMaxWidth().height(50.dp)){
-//                                itemsIndexed(storeProducts.value){index, item ->
-//                                    Button(onClick = {}) {
-//                                        Text(item.category.categoryName)
-//                                    }
-//                                }
-//
-//                            }
-//                        }
-
-
-                            HorizontalDivider()
-
-
-                            MainCompose1(
-                                0.dp,stateController2,this@MainActivity,
-                                {
-                                    readProducts()
-                                }
-
-                            ) {
-                                LazyColumn() {
-                                    itemsIndexed(products.value){ index, product ->
-                                        Card (Modifier.fillMaxWidth().padding(5.dp).height(100.dp).clickable {
-
-                                            goToAddToCart(product)
-                                        }){
-                                            Row (Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ){
-                                                Text(product.product.productName,Modifier.padding(8.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                                if (product.product.images.firstOrNull() != null)
-                                                    CustomImageView(
-                                                        modifier = Modifier.size(100.dp).padding(5.dp),
-                                                        context = this@MainActivity,
-                                                        imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL+
-                                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT+
-                                                                product.product.images.first().image,
-                                                        okHttpClient = requestServer.createOkHttpClientWithCustomCert()
-                                                    )
-//                                        if (product.options.firstOrNull() != null){
-//                                            Text(product.options.first().name,Modifier.padding(8.dp))
-//                                            Text(
-//                                                modifier = Modifier.padding(8.dp),
-//                                                text = formatPrice(product.options.first().price) + " ريال ",
-//                                                fontWeight = FontWeight.Bold,
-//                                                fontSize = 16.sp,
-//                                                color = Color.Black
-//                                            )
-//                                        }
-
-                                            }
-
-//                                    Text(product.productDescription, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-//
-//                                    if (product.options.size > 1){
-//                                        Text("متعدد الخيارات")
-//                                    }
-                                        }
-                                    }
-                                }
-                            }
-
-
-//                            Column {
-//
-//                            }
-
-
-                    }
-//                    Column {
-//                        Button(onClick = {
-//                            getContent.launch("image/*")
-//
-//
-//                        }) {
-//                            Text("image")
-//                        }
-//                        if (url.value.length > 0){
-//                            AsyncImage(modifier =  Modifier.size(400.dp), model = url.value, contentDescription = "")
-//                        }
-//
-//                    }
                 }
             }
         }
@@ -527,28 +389,28 @@ data class Category(
     val categoryName: String
 )
 
-@Serializable
-data class Product(
-    val productId: Int,
-    val productName: String,
-    val productDescription: String?,
-    val images: List<ProductImage>
-)
+//@Serializable
+//data class Product(
+//    val productId: Int,
+//    val productName: String,
+//    val productDescription: String?,
+//    val images: List<ProductImage>
+//)
 
 
-@Serializable
-data class StoreProduct(
-    val product: Product,
-    val storeNestedSectionId:Int,
-    val options: List<ProductOption>,
-)
+//@Serializable
+//data class StoreProduct(
+//    val product: Product,
+//    val storeNestedSectionId:Int,
+//    val options: List<ProductOption>,
+//)
 
-@Serializable
-data class ProductOption(
-    val storeProductId: Int,
-    val name: String,
-    val price: String
-)
+//@Serializable
+//data class ProductOption(
+//    val storeProductId: Int,
+//    val name: String,
+//    val price: String
+//)
 @Serializable
 data class ProductImage(
     val image: String
