@@ -65,6 +65,7 @@ import com.fekraplatform.stores.shared.AToken
 import com.fekraplatform.stores.shared.CustomCard
 import com.fekraplatform.stores.shared.CustomIcon
 import com.fekraplatform.stores.shared.CustomImageView
+import com.fekraplatform.stores.shared.CustomSingleton
 import com.fekraplatform.stores.shared.MainCompose1
 import com.fekraplatform.stores.shared.MyJson
 import com.fekraplatform.stores.shared.RequestServer
@@ -734,7 +735,7 @@ class InsideStoreActivity : ComponentActivity() {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("storeNestedSectionId",selectedStoreNestedSection.value!!.id.toString())
-            .addFormDataPart("storeId",store.id.toString()).build()
+            .addFormDataPart("storeId",CustomSingleton.getCustomStoreId().toString()).build()
 
 
         requestServer.request2(body,"getProducts",{code,fail->
@@ -750,6 +751,17 @@ class InsideStoreActivity : ComponentActivity() {
                 MyJson.IgnoreUnknownKeys.decodeFromString(
                     data
                 )
+            if (CustomSingleton.isSharedStore()) {
+                productViews.value = productViews.value.map { productView ->
+                    val newProducts = productView.products.map { product ->
+                        val newOptions = product.options.filterNot { option ->
+                            option.storeProductId in CustomSingleton.selectedStore!!.storeConfig!!.products
+                        }
+                        product.copy(options = newOptions)
+                    }
+                    productView.copy(products = newProducts.filterNot { it.options.isEmpty() })
+                }
+            }
 
             if (!isLoadingLinear){
                 stateControllerProducts.successState()

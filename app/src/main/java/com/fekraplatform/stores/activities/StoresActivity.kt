@@ -47,6 +47,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import com.fekraplatform.stores.models.Store
 import com.fekraplatform.stores.shared.CustomImageView
+import com.fekraplatform.stores.shared.CustomSingleton
 import com.fekraplatform.stores.shared.MainCompose1
 import com.fekraplatform.stores.shared.MyJson
 import com.fekraplatform.stores.shared.RequestServer
@@ -382,7 +383,7 @@ class StoresActivity : ComponentActivity() {
                         Modifier
                             .fillMaxSize()
                             .clickable {
-
+                                CustomSingleton.selectedStore = item
                                 goToStores(item)
                             }
                     ) {
