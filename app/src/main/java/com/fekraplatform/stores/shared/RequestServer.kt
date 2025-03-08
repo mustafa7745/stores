@@ -7,7 +7,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.fekraplatform.stores.activities.LoginActivity
-import com.fekraplatform.stores.activities.StoresActivity
+import com.fekraplatform.stores.activities.MainActivity
 import com.fekraplatform.stores.models.ErrorMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -16,6 +16,7 @@ import kotlinx.serialization.encodeToString
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import org.json.JSONObject
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -130,8 +131,7 @@ class RequestServer(private val activity: ComponentActivity) {
             withContext(Dispatchers.IO) {
                 val okHttpClient = createOkHttpClientWithCustomCert()
                 try {
-                    val finalUrl =
-                        "${SingletonRemoteConfig.remoteConfig.BASE_URL}${SingletonRemoteConfig.remoteConfig.VERSION}/${urlPostfix}"
+                    val finalUrl = "${CustomSingleton.remoteConfig.BASE_URL}${CustomSingleton.remoteConfig.VERSION}/${urlPostfix}"
 
                     val request = Request.Builder()
                         .url(finalUrl)
@@ -192,23 +192,25 @@ class RequestServer(private val activity: ComponentActivity) {
 
     fun initVarConfig(onFail:()->Unit, onSuccess: () -> Unit) {
         val remoteConfig = getRemoteConfig()
+//        val configSettings = remoteConfigSettings {
+//            minimumFetchIntervalInSeconds = 3600 // 1 hour
+//            fetchTimeoutInSeconds = 60 // 60 seconds
+//        }
+//        remoteConfig.setConfigSettingsAsync(configSettings)
         remoteConfig.fetchAndActivate()
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val BASE_URL = remoteConfig.getString("BASE_URL")
-                    val BASE_IMAGE_URL = remoteConfig.getString("BASE_IMAGE_URL")
-                    val SUB_FOLDER_PRODUCT = remoteConfig.getString("SUB_FOLDER_PRODUCT")
-                    val TYPE = ""
-                    val SUB_FOLDER_STORE_LOGOS = remoteConfig.getString("SUB_FOLDER_STORE_LOGOS")
-                    val SUB_FOLDER_STORE_COVERS = remoteConfig.getString("SUB_FOLDER_STORE_COVERS")
-                    val varRemoteConfig = VarRemoteConfig(
-                        BASE_URL = BASE_URL,
-                        BASE_IMAGE_URL = BASE_IMAGE_URL,
-                        SUB_FOLDER_PRODUCT = SUB_FOLDER_PRODUCT, TYPE = TYPE,
-                        SUB_FOLDER_STORE_LOGOS = SUB_FOLDER_STORE_LOGOS,
-                        SUB_FOLDER_STORE_COVERS = SUB_FOLDER_STORE_COVERS
+                    val allConfigs = remoteConfig.all
+                    // Convert the map to a JSON object
+                    val jsonObject = JSONObject()
+                    for ((key, value) in allConfigs) {
+                        jsonObject.put(key, value.asString())
+                    }
+
+                    val myRemoteConfig = MyJson.IgnoreUnknownKeys.decodeFromString<RemoteConfigModel>(
+                        jsonObject.toString()
                     )
-                    serverConfig.setRemoteConfig(MyJson.IgnoreUnknownKeys.encodeToString(varRemoteConfig))
+                    serverConfig.setRemoteConfig(MyJson.IgnoreUnknownKeys.encodeToString(myRemoteConfig))
 //                    remoteConfigInRequest = SingletonRemoteConfig.remoteConfig
                     onSuccess()
 //                stateController.successStateAUD()
@@ -281,7 +283,7 @@ class RequestServer(private val activity: ComponentActivity) {
         request2(body,"refreshToken",{code, fail ->  onFail(code,fail)}){it->
             aToken.setAccessToken(it)
             val intent =
-                Intent(activity, StoresActivity::class.java)
+                Intent(activity, MainActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
             activity.startActivity(intent)
             activity.finish()

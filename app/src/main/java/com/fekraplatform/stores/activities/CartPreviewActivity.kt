@@ -76,13 +76,13 @@ import com.fekraplatform.stores.shared.CustomCard
 import com.fekraplatform.stores.shared.CustomIcon
 import com.fekraplatform.stores.shared.CustomImageView
 import com.fekraplatform.stores.shared.CustomRow2
+import com.fekraplatform.stores.shared.CustomSingleton
 import com.fekraplatform.stores.shared.IconDelete
+import com.fekraplatform.stores.shared.MyHeader
 import com.fekraplatform.stores.shared.MyJson
 import com.fekraplatform.stores.shared.MyTextField
 import com.fekraplatform.stores.shared.OutLinedButton
 import com.fekraplatform.stores.shared.RequestServer
-import com.fekraplatform.stores.shared.SingletonRemoteConfig
-import com.fekraplatform.stores.shared.SingletonStores
 import com.fekraplatform.stores.shared.StateController
 import com.fekraplatform.stores.shared.builderForm3
 import com.fekraplatform.stores.ui.theme.StoresTheme
@@ -98,7 +98,6 @@ class CartPreviewActivity : ComponentActivity() {
 
     var isShowReadLocations by mutableStateOf(false)
     val requestServer = RequestServer(this)
-    var cartView by mutableStateOf(true)
     var isShowSelectPaymentMethod by mutableStateOf(false)
     var isShowShowPaymentTypes by mutableStateOf(false)
     var selectedPaymentMethod by mutableStateOf<PaymentModel?>(null)
@@ -117,6 +116,12 @@ class CartPreviewActivity : ComponentActivity() {
         DeliveryOption(2,"الاستلام من المتجر")
     )
 
+    val pages = listOf(
+        PageModel("محتوى السلة",0),
+        PageModel("مراجعة وتأكيد الطلب",1)
+    )
+    var page by mutableStateOf(pages.first())
+
 
     var selectedOption by mutableStateOf(radioOptions[0])
     var title by mutableStateOf("")
@@ -124,46 +129,31 @@ class CartPreviewActivity : ComponentActivity() {
     fun onOptionSelected(newOption: DeliveryOption) {
         selectedOption = newOption
     }
+    private fun backHandler() {
+        if (page.pageId != 0) {
+            page = pages.first()
+        } else
+            finish()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         stateController.successState()
-
-        enableEdgeToEdge()
         setContent {
-            BackHand()
-            //
-
             StoresTheme  {
-                Column(
-                    Modifier.fillMaxSize().safeDrawingPadding(),
-                    verticalArrangement = Arrangement.Top,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CustomCard(modifierBox = Modifier) {
-                        CustomRow2{
-                            CustomIcon(Icons.AutoMirrored.Default.ArrowBack, border = true) {
-                                if (cartView) {
-                                    finish()
-                                } else
-                                    cartView = true
-                            }
-                            Text(title)
-                        }
-                    }
-                    if (cartView) {
-                        title = "عرض السلة"
-//                            Text("السلة")
-//                            HorizontalDivider()
-                        MainContentCartPreview()
-                    } else {
-                        MainCompose1(0.dp, stateController, this@CartPreviewActivity, {
+                MainCompose1(0.dp, stateController, this@CartPreviewActivity, {
 
-                        }) {
+                }){
+                    MyHeader(onBack = { backHandler() }) { Text(page.pageName) }
+                    //
+                    if (page.pageId == 0) {
+                        title = "عرض السلة"
+                        MainContentCartPreview()
+                    }
+                    //
+                    if (page.pageId == 1) {
                             title = "تأكيد الطلب"
-//                                Text("الطلب",)
                             MainContentOrderPreview()
-                        }
                         if (isShowReadLocations) modalShowLocations()
                         if (isShowSelectPaymentMethod) ChoosePaymentMethod()
                         if (isShowShowPaymentTypes) ChoosePaymentTypes()
@@ -173,15 +163,7 @@ class CartPreviewActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    private fun BackHand() {
-        BackHandler {
-            if (cartView) {
-                finish()
-            } else
-                cartView = true
-        }
-    }
+
 
     @Composable
     @OptIn(ExperimentalFoundationApi::class)
@@ -203,7 +185,7 @@ class CartPreviewActivity : ComponentActivity() {
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(SingletonStores.selectedStore.name,Modifier.padding(8.dp))
+                                    Text(CustomSingleton.selectedStore!!.name,Modifier.padding(8.dp))
                                     CustomImageView(
                                         modifier = Modifier
                                             .size(50.dp)
@@ -212,27 +194,27 @@ class CartPreviewActivity : ComponentActivity() {
 
                                             },
                                         context = this@CartPreviewActivity,
-                                        imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_STORE_LOGOS +
-                                                SingletonStores.selectedStore.logo,
+                                        imageUrl = CustomSingleton.remoteConfig.BASE_IMAGE_URL +
+                                                CustomSingleton.remoteConfig.SUB_FOLDER_STORE_LOGOS +
+                                                CustomSingleton.selectedStore!!.logo,
                                         okHttpClient = requestServer.createOkHttpClientWithCustomCert()
                                     )
                                 }
                                 HorizontalDivider()
-                                if (SingletonCart.getAllCartProducts(SingletonStores.selectedStore)
+                                if (SingletonCart.getAllCartProducts(CustomSingleton.selectedStore!!)
                                         .isNotEmpty()
                                 ) {
 
                                     Text(
                                         "الاجمالي : " + SingletonCart.getAllCartProductsSum(
-                                            SingletonStores.selectedStore
+                                            CustomSingleton.selectedStore!!
                                         ),Modifier.padding(8.dp)
                                     )
                                 }
                                 HorizontalDivider()
                                 Button(
                                     onClick = {
-                                        cartView = false
+                                        page = pages[1]
                                     },
                                     modifier = Modifier.padding( 8.dp).fillMaxWidth()
                                 ) {
@@ -243,7 +225,7 @@ class CartPreviewActivity : ComponentActivity() {
                         }
                     }
 
-                    itemsIndexed(SingletonCart.getAllCartProducts(SingletonStores.selectedStore)) { index: Int, cartProduct: CartProduct ->
+                    itemsIndexed(SingletonCart.getAllCartProducts(CustomSingleton.selectedStore!!)) { index: Int, cartProduct: CartProduct ->
 
                         CustomCard(
                             modifierBox = Modifier.fillMaxSize().clickable {
@@ -258,8 +240,8 @@ class CartPreviewActivity : ComponentActivity() {
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
 //                                    Log.e(
-//                                        "image", SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-//                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
+//                                        "image", CustomSingleton.remoteConfig.BASE_IMAGE_URL +
+//                                                CustomSingleton.remoteConfig.SUB_FOLDER_PRODUCT +
 //                                                cartProduct.product.images.first()
 //                                    )
                                     Text(cartProduct.product.productName)
@@ -272,8 +254,8 @@ class CartPreviewActivity : ComponentActivity() {
 
                                                 },
                                             context = this@CartPreviewActivity,
-                                            imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-                                                    SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
+                                            imageUrl = CustomSingleton.remoteConfig.BASE_IMAGE_URL +
+                                                    CustomSingleton.remoteConfig.SUB_FOLDER_PRODUCT +
                                                     cartProduct.product.images.first().image,
                                             okHttpClient = requestServer.createOkHttpClientWithCustomCert()
                                         )
@@ -357,6 +339,15 @@ class CartPreviewActivity : ComponentActivity() {
                                 {
                                     RadioButton(selected = (text == selectedOption), onClick = null)
                                     Text(text = text.name,style = MaterialTheme. typography. bodyLarge,modifier = Modifier. padding(start = 16.dp))
+                                    if (text.id == 1){
+                                        Button(
+                                            modifier = Modifier.padding(5.dp),
+                                            onClick = {
+                                                ShowLocations()
+                                            }) {
+                                            Text(if (selectedLocation == null)"اختيار موقع" else "تغيير الموقع")
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -370,13 +361,6 @@ class CartPreviewActivity : ComponentActivity() {
                                 Text("توصيل الى:")
                                 Text(selectedLocation!!.street)
                             }
-                        }
-                        Button(
-                            modifier = Modifier.fillMaxWidth().padding(8.dp),
-                            onClick = {
-                                ShowLocations()
-                            }) {
-                            Text(if (selectedLocation == null)"اختيار موقع" else "تغيير الموقع")
                         }
                     }
                 item {
@@ -431,39 +415,6 @@ class CartPreviewActivity : ComponentActivity() {
                                 )
 
                             }
-//                    Row (
-//                        Modifier
-//                            .fillMaxWidth()
-//                            .padding(5.dp),
-//                        horizontalArrangement = Arrangement.Start,
-//                        verticalAlignment = Alignment.CenterVertically,
-//                    ){
-//
-//                    }
-
-//                    Card (
-//                        Modifier
-//
-//                            .clickable {
-//
-//                            },
-//                    ){
-//                        Box (
-//                            Modifier
-//                                .fillMaxSize()
-//                                .background(MaterialTheme.colorScheme.primary)){
-//                            Text(
-//                                modifier = Modifier.padding(1.dp),
-//
-//                                text = "الدفع الالكتروني؟ تواصل معنا",
-//                                fontSize = 12.sp,
-//                                color = Color.White,
-//                                fontWeight = FontWeight.Bold
-//                            )
-//                        }
-//
-//                    }
-
                     }
                 }
             })
@@ -517,14 +468,14 @@ class CartPreviewActivity : ComponentActivity() {
 //                            startActivity(intent)
                             }) { Text("اضافة") }
                     }
-                    item {
-                        var sectionName by remember { mutableStateOf("") }
-                        Card(Modifier.padding(8.dp)){
-                            IconDelete(ids) {
-
-                            }
-                        }
-                    }
+//                    item {
+//                        var sectionName by remember { mutableStateOf("") }
+//                        Card(Modifier.padding(8.dp)){
+//                            IconDelete(ids) {
+//
+//                            }
+//                        }
+//                    }
 
                     itemsIndexed(locations){index,location->
                         Card(Modifier.padding(8.dp)) {
@@ -585,7 +536,7 @@ class CartPreviewActivity : ComponentActivity() {
     fun readPaymentTypes() {
         stateController.startAud()
         val body = builderForm3()
-            .addFormDataPart("storeId",SingletonStores.selectedStore.id.toString())
+            .addFormDataPart("storeId",CustomSingleton.selectedStore!!.id.toString())
             .build()
 
         requestServer.request2(body, "getPaymentTypes", { code, fail ->
@@ -610,7 +561,7 @@ class CartPreviewActivity : ComponentActivity() {
 
         val bodyBuilder = builderForm3()
             .addFormDataPart("orderProducts", MyJson.MyJson.encodeToJsonElement(SingletonCart.getProductsIdsWithQnt()).toString())
-            .addFormDataPart("storeId", SingletonStores.selectedStore.id.toString())
+            .addFormDataPart("storeId", CustomSingleton.selectedStore!!.id.toString())
 
 
         if (selectedLocation != null) {
@@ -650,7 +601,8 @@ class CartPreviewActivity : ComponentActivity() {
         if (result.resultCode == Activity.RESULT_OK && result.data != null && result.data!!.getStringExtra("location") != null) {
             val location = MyJson.IgnoreUnknownKeys.decodeFromString<Location>(result.data!!.getStringExtra("location")!!)
             locations += location
-            isShowReadLocations = true
+            selectedLocation = location
+//            isShowReadLocations = true
         }
     }
 
@@ -773,4 +725,6 @@ class CartPreviewActivity : ComponentActivity() {
     }
 }
 
+@Serializable
+data class PageModel(val pageName:String,val pageId:Int)
 

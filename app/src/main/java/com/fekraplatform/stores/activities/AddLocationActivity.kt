@@ -1,6 +1,8 @@
 package com.fekraplatform.stores.activities
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Icon
 import android.os.Bundle
@@ -8,6 +10,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -24,12 +27,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,18 +51,24 @@ import com.fekraplatform.stores.CartProduct
 import com.fekraplatform.stores.MainCompose1
 import com.fekraplatform.stores.SingletonCart
 import com.fekraplatform.stores.formatPrice
+import com.fekraplatform.stores.models.Location
 import com.fekraplatform.stores.shared.ADControll
 import com.fekraplatform.stores.shared.CustomCard
 import com.fekraplatform.stores.shared.CustomIcon
+import com.fekraplatform.stores.shared.CustomIcon2
+import com.fekraplatform.stores.shared.CustomIcon3
 import com.fekraplatform.stores.shared.CustomImageView
+import com.fekraplatform.stores.shared.CustomSingleton
+import com.fekraplatform.stores.shared.MyHeader
+import com.fekraplatform.stores.shared.MyJson
 import com.fekraplatform.stores.shared.RequestServer
-import com.fekraplatform.stores.shared.SingletonRemoteConfig
-import com.fekraplatform.stores.shared.SingletonStores
 import com.fekraplatform.stores.shared.StateController
 import com.fekraplatform.stores.shared.builderForm3
 import com.fekraplatform.stores.ui.theme.StoresTheme
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.CameraUpdate
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.PinConfig
@@ -68,35 +80,54 @@ import okhttp3.MultipartBody
 
 class AddLocationActivity : ComponentActivity() {
     private val stateController = StateController()
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    var  latLng by mutableStateOf<LatLng?>(null)
-    var lat by mutableDoubleStateOf(0.0)
-    var long by mutableDoubleStateOf(0.0)
-
+    val myLocationManager = MyLocationManager(this)
+    var street by mutableStateOf("")
     val requestServer = RequestServer(this)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions()
-        } else {
-            getCurrentLocation()
-        }
+        myLocationManager.initLocation()
 
         setContent {
             StoresTheme {
-                MainCompose1(0.dp,stateController,this,{
+                if (myLocationManager.isLoading){
+                    stateController.startRead()
+                }else{
+                    if (myLocationManager.isSuccess){
+                        stateController.successStateAUD()
+                        stateController.successState()
+                    }else{
+                        stateController.errorStateAUD(myLocationManager.messageLocation)
+                        stateController.errorStateRead(myLocationManager.messageLocation)
+                    }
+                }
 
+                MainCompose1(0.dp,stateController,this,{
+                    myLocationManager.initLocation()
                 }){
                     Column(
                         Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Top,
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("اضافة موقع للتوصيل")
+
+
+                        MyHeader({
+                            finish()
+                        },{
+
+                        }) {
+                            Text("اضافة موقع للتوصيل")
+                        }
+
+
+                        OutlinedTextField(
+                            modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                            label = { Text("وصف الموقع") },
+                            value = street,
+                            onValueChange = {
+                                street = it
+                            }
+                        )
+
                         ComposeMapp()
                     }
                 }
@@ -107,7 +138,7 @@ class AddLocationActivity : ComponentActivity() {
 
     @Composable
     private fun ComposeMapp() {
-        var location = LatLng(lat, long)
+        var location = myLocationManager.location!!
         val markerState = rememberMarkerState(position = location)
 
         var cameraPositionState = rememberCameraPositionState {
@@ -127,32 +158,33 @@ class AddLocationActivity : ComponentActivity() {
             // Set new position to markerState and location
             location = updatedLatLng
             markerState.position = updatedLatLng
-
-            // Update the lat and long state variables
-            lat = updatedLatLng.latitude
-            long = updatedLatLng.longitude
         }
 
 
-        GoogleMap(
-            modifier = Modifier.fillMaxWidth().height(400.dp),
-            cameraPositionState = cameraPositionState
-        ) {
-            AdvancedMarker(
-                state = markerState,
-                pinConfig = pinConfig
-            )
-        }
+
 
         Box(
             Modifier.fillMaxSize(),
         ) {
-            CustomIcon(Icons.Outlined.Place) {
-                getCurrentLocation()
+            GoogleMap(
+                Modifier.fillMaxWidth().height(400.dp).align(Alignment.TopCenter),
+                cameraPositionState = cameraPositionState
+            ) {
+                AdvancedMarker(
+                    state = markerState,
+                    pinConfig = pinConfig
+                )
+            }
+
+            CustomIcon3(Icons.Outlined.Place, modifierButton = Modifier.align(Alignment.TopStart).padding(8.dp)) {
+               stateController.startAud()
+               myLocationManager.initLocation()
+                cameraPositionState.move(CameraUpdateFactory.newCameraPosition(CameraPosition.fromLatLngZoom(location, 16f)))
+                markerState.position = myLocationManager.location!!
             }
                 Button(
                     onClick = {
-                        addLocation()
+                        addLocation( cameraPositionState.position.target.latitude.toString()+ "," + cameraPositionState.position.target.longitude.toString(),)
 //                        updateLocation()
                     },
                     modifier = Modifier
@@ -170,88 +202,23 @@ class AddLocationActivity : ComponentActivity() {
                 }
         }
     }
-
-    fun addLocation() {
-
-        val latiLng = lat.toString() + "," + long.toString()
+    private fun addLocation(latLong:String) {
         stateController.startAud()
         val body = builderForm3()
-            .addFormDataPart("latLng",latiLng)
-            .addFormDataPart("street","شارع حده")
+            .addFormDataPart("latLng",latLong)
+            .addFormDataPart("street",street)
             .build()
 
         requestServer.request2(body, "addLocation", { code, fail ->
             stateController.errorStateAUD(fail)
         }
         ) { data ->
-////            val result: Store =
-////                MyJson.IgnoreUnknownKeys.decodeFromString(
-////                    data
-////                )
-//            SelectedStore.store.value!! .latLng = latiLng
-//            MyToast(this,"تم بنجاح")
+            val resultIntent = Intent()
+            resultIntent.putExtra("location", data) // إضافة بيانات إلى النتيجة
+            setResult(RESULT_OK, resultIntent)
             stateController.successStateAUD()
             finish()
         }
-    }
-    //
-    private fun requestPermissions() {
-        // Launch the request permission dialog
-        requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-    }
-
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                // Permission granted, now we can get the location
-                getCurrentLocation()
-            } else {
-                // Permission denied, show a message to the user
-                Toast.makeText(
-                    this,
-                    "Location permission is required to fetch country name",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-    private fun getCurrentLocation() {
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            Log.e("sddd","null")
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
-        Log.e("sddd3","11")
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location ->
-                Log.e("sddd3","55")
-                if (location != null) {
-                    Log.e("sddd3","669")
-                    latLng  = LatLng(location.latitude,location.longitude)
-                    Log.e("loc",latLng.toString())
-                    lat = latLng!!.latitude
-                    long = latLng!!.longitude
-                } else {
-                    // Handle the case where the location is not available
-                    Toast.makeText(this, "Unable to get location", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .addOnFailureListener {
-                // Handle failure in location retrieval
-//                MyToast(this,"Failed to get location")
-            }
     }
 }
 

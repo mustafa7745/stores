@@ -54,23 +54,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fekraplatform.stores.AddToCartActivity
 import com.fekraplatform.stores.R
+import com.fekraplatform.stores.models.CustomPrice
 import com.fekraplatform.stores.models.Home
 import com.fekraplatform.stores.models.ProductView
 import com.fekraplatform.stores.models.Store
 import com.fekraplatform.stores.models.StoreCategory
+import com.fekraplatform.stores.models.StoreHome
 import com.fekraplatform.stores.models.StoreNestedSection
 import com.fekraplatform.stores.models.StoreProduct
 import com.fekraplatform.stores.models.StoreSection
 import com.fekraplatform.stores.shared.AToken
 import com.fekraplatform.stores.shared.CustomCard
 import com.fekraplatform.stores.shared.CustomIcon
+import com.fekraplatform.stores.shared.CustomIcon3
 import com.fekraplatform.stores.shared.CustomImageView
 import com.fekraplatform.stores.shared.CustomSingleton
 import com.fekraplatform.stores.shared.MainCompose1
 import com.fekraplatform.stores.shared.MyJson
 import com.fekraplatform.stores.shared.RequestServer
-import com.fekraplatform.stores.shared.SingletonRemoteConfig
-import com.fekraplatform.stores.shared.SingletonStores
 import com.fekraplatform.stores.shared.StateController
 import com.fekraplatform.stores.shared.formatNumber
 import com.fekraplatform.stores.shared.getCurrentDate
@@ -82,53 +83,25 @@ import kotlinx.serialization.encodeToString
 import okhttp3.MultipartBody
 import java.time.Duration
 
-object SingletonHome {
-
-    val categories   =  mutableStateOf<List<Int>>(emptyList())
-    val sections   =  mutableStateOf<List<Int>>(emptyList())
-    val nestedSection   =  mutableStateOf<List<Int>>(emptyList())
-    val products   =  mutableStateOf<List<Int>>(emptyList())
-    val isEditMode = mutableStateOf(false)
-//    val storeConfig = mutableStateOf(StoreConfig(
-//        emptyList(), emptyList(),
-//        emptyList(), emptyList()
-//    ))
-
-//    val store = mutableStateOf<Store?>(null)
-
-    lateinit var stateController: StateController
-    lateinit var requestServer : RequestServer
-    //
-    fun setStateController1(states: StateController){
-        stateController =states
-    }
-    fun setReqestController(request: RequestServer){
-        requestServer =request
-    }
+class InsideStoreActivity : ComponentActivity() {
     val homeStorage = HomeStorage();
-    val home = mutableStateOf<Home?>(null)
-    fun initHome(storeId: String,onSuccess: () -> Unit){
-        if (homeStorage.isSetHome(storeId)) {
-            val diff =
-                Duration.between(homeStorage.getDate(storeId), getCurrentDate()).toMinutes()
-            if (diff <= 1) {
-                stateController.successState()
-                home.value = homeStorage.getHome(storeId)
-                Log.e("storedHome", home.value.toString())
-                onSuccess()
-            }
-            else{
-                Log.e("frf23478", home.value.toString())
-                read(storeId, onSuccess )
-            }
-        }else{
-            Log.e("frf2344", home.value.toString())
-            read(storeId, onSuccess )
-        }
-    }
+    private val productViews = mutableStateOf<List<ProductView>>(listOf())
+    val stateController = StateController()
+    val stateControllerProducts = StateController()
+    val requestServer = RequestServer(this)
+    var home by mutableStateOf<Home?>(null)
+    val aToken = AToken()
+//    lateinit var store: Store
+
+
+    var selectedCategory = mutableStateOf<StoreCategory?>(null)
+    var selectedSection = mutableStateOf<StoreSection?>(null)
+    var selectedStoreNestedSection = mutableStateOf<StoreNestedSection?>(null)
+
+    var isEmptyComponent by mutableStateOf(true)
+    var isLoadingLinear by mutableStateOf(false)
     fun read(storeId: String,onSuccess: () -> Unit) {
         stateController.startRead()
-
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("storeId",storeId)
@@ -142,81 +115,30 @@ object SingletonHome {
                 MyJson.IgnoreUnknownKeys.decodeFromString(
                     data
                 )
-            home.value = result
-            homeStorage.setHome(data,storeId)
-            Log.e("dsd", home.value.toString())
-            Log.e("dsd2",result.toString())
+            CustomSingleton.homes += StoreHome(storeId.toInt(),result)
+            filterHome(result)
+
             stateController.successState()
             onSuccess()
         }
     }
-}
-
-class InsideStoreActivity : ComponentActivity() {
-    val homeStorage = HomeStorage();
-    private val productViews = mutableStateOf<List<ProductView>>(listOf())
-    val stateController = StateController()
-    val stateControllerProducts = StateController()
-    val requestServer = RequestServer(this)
-    var home by mutableStateOf<Home?>(null)
-    val aToken = AToken()
-    lateinit var store: Store
-
-
-    var selectedCategory = mutableStateOf<StoreCategory?>(null)
-    var selectedSection = mutableStateOf<StoreSection?>(null)
-    var selectedStoreNestedSection = mutableStateOf<StoreNestedSection?>(null)
-
-    var isEmptyComponent by mutableStateOf(true)
-
-    var isLoadingLinear by mutableStateOf(false)
-
-//    lateinit var selectedCategory: StoreCategory
-//    lateinit var selectedSection: StoreSection
-//    lateinit var selectedStoreNestedSection: StoreNestedSection
-
+    
     @OptIn(ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        stateController.startRead()
+        Log.e("eere",CustomSingleton.selectedStore.toString())
+         val h = CustomSingleton.homes.find { it.storeId == CustomSingleton.getCustomStoreId() }
+        if (h != null){
 
-
-
-        val intent = intent
-        val str = intent.getStringExtra("store")
-        if (str != null) {
-            try {
-                store = MyJson.IgnoreUnknownKeys.decodeFromString(str)
-                SingletonStores.selectedStore = store
-            } catch (e: Exception) {
-                finish()
-            }
-
-        } else {
-            finish()
+                filterHome(h.home)
+            stateController.successState()
+        }else{
+            read(CustomSingleton.selectedStore!!.id.toString()){}
         }
 
+//        mainInit()
 
-        mainInit()
-
-//        SingletonHome.setStateController1(stateController)
-//        SingletonHome.setReqestController(requestServer)
-
-//        read{
-//            Log.e("dfee688",isEmptyComponent.toString())
-//            if (SingletonHome.home.value!!.storeCategories.isNotEmpty() && SingletonHome.home.value!!.storeSections.isNotEmpty() && SingletonHome.home.value!!.storeNestedSections.isNotEmpty()){
-//                Log.e("dfee666",isEmptyComponent.toString())
-//                selectedCategory.value = SingletonHome.home.value!!.storeCategories.first()
-//                selectedSection.value = SingletonHome.home.value!!.storeSections.first()
-//                selectedStoreNestedSection.value = SingletonHome.home.value!!.storeNestedSections.first()
-//                isEmptyComponent = false
-//                Log.e("dfee667",isEmptyComponent.toString())
-//                readProducts()
-//            }
-//        }
-
-
-
-//        read()
         enableEdgeToEdge()
         setContent {
             StoresTheme {
@@ -244,7 +166,7 @@ class InsideStoreActivity : ComponentActivity() {
 
                                         },
                                     context = this@InsideStoreActivity,
-                                    imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL + SingletonRemoteConfig.remoteConfig.SUB_FOLDER_STORE_COVERS + store.cover,
+                                    imageUrl = CustomSingleton.remoteConfig.BASE_IMAGE_URL + CustomSingleton.remoteConfig.SUB_FOLDER_STORE_COVERS + CustomSingleton.selectedStore!!.cover,
                                     okHttpClient = requestServer.createOkHttpClientWithCustomCert()
                                 )
                                 Card(
@@ -271,7 +193,7 @@ class InsideStoreActivity : ComponentActivity() {
 
                                                     },
                                                 context = this@InsideStoreActivity,
-                                                imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL + SingletonRemoteConfig.remoteConfig.SUB_FOLDER_STORE_LOGOS + store.logo,
+                                                imageUrl = CustomSingleton.remoteConfig.BASE_IMAGE_URL + CustomSingleton.remoteConfig.SUB_FOLDER_STORE_LOGOS + CustomSingleton.selectedStore!!.logo,
                                                 okHttpClient = requestServer.createOkHttpClientWithCustomCert()
                                             )
                                             Column {
@@ -281,11 +203,13 @@ class InsideStoreActivity : ComponentActivity() {
                                                     horizontalArrangement = Arrangement.SpaceBetween
                                                 ){
                                                     Text(
-                                                        text = store.name, fontSize = 16
+                                                        text = CustomSingleton.selectedStore!!.name, fontSize = 16
 
                                                             .sp, fontWeight = FontWeight.Bold
                                                     )
-                                                    CustomIcon(Icons.Outlined.Info) { }
+                                                    CustomIcon(Icons.Outlined.Info) {
+                                                        goToStoreInfo()
+                                                    }
                                                 }
 
                                                 Text(
@@ -298,11 +222,14 @@ class InsideStoreActivity : ComponentActivity() {
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Text(
-                                                        text = formatNumber(store.subscriptions)  + " مشترك ",
+                                                        text = formatNumber(CustomSingleton.selectedStore!!.subscriptions)  + " مشترك ",
                                                         color = MaterialTheme.colorScheme.primary,
                                                         fontSize = 14.sp,
                                                     )
-                                                   StarRating(store.stars)
+//                                                    Row {
+//
+//                                                    }
+//                                                   StarRating(CustomSingleton.selectedStore!!.stars)
                                                 }
                                             }
                                         }
@@ -336,11 +263,11 @@ class InsideStoreActivity : ComponentActivity() {
 
                                             // Second Row: Comments
                                             Row(
-                                                modifier = Modifier.clickable { /* handle click */ },
+//                                                modifier = Modifier.clickable { /* handle click */ },
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                CustomIcon(Icons.Outlined.FavoriteBorder) { }
-                                                Text(text = "${formatNumber(store.likes)} اعجاب", modifier = Modifier.clickable { /* handle click */ })
+                                                CustomIcon3(Icons.Outlined.FavoriteBorder, border = true,modifierButton = Modifier.size(40.dp).padding(5.dp), borderColor = Color.Red, tint = Color.Red,modifierIcon = Modifier.padding(5.dp)) { }
+                                                Text(text = "${formatNumber(CustomSingleton.selectedStore!!.likes)} اعجاب", modifier = Modifier.clickable { /* handle click */ })
                                             }
 
                                             // Divider between the second and third section
@@ -348,11 +275,11 @@ class InsideStoreActivity : ComponentActivity() {
 
                                             // Third Row: Stars
                                             Row(
-                                                modifier = Modifier.clickable { /* handle click */ },
+//                                                modifier = Modifier.clickable { /* handle click */ },
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                CustomIcon(Icons.Outlined.Star) { }
-                                                Text(text = "${formatNumber(store.stars)} تعليق")
+                                                CustomIcon3(Icons.Outlined.Star, border = true,modifierButton = Modifier.size(40.dp).padding(5.dp), borderColor = Color(0xFFFC5000) ,tint = Color(0xFFFC5000), modifierIcon = Modifier.padding(5.dp)) { }
+                                                Text(text = "${formatNumber(CustomSingleton.selectedStore!!.stars)} تعليق")
                                             }
                                         }
 
@@ -434,7 +361,7 @@ class InsideStoreActivity : ComponentActivity() {
                         }
                         else{
                             Log.e("ffdd",isEmptyComponent.toString())
-                            item {
+                            stickyHeader {
                                 DropDownDemo()
                                 if (isLoadingLinear)
                                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -548,6 +475,7 @@ class InsideStoreActivity : ComponentActivity() {
                                             LazyRow (Modifier.height(150.dp)) {
                                                 itemsIndexed(productView.products){index, product ->
                                                     CustomCard(modifierBox = Modifier.clickable {
+                                                        CustomSingleton.otherProducts = productViews.value
                                                         goToAddToCart(product)
                                                     }) {
                                                         Column(
@@ -562,8 +490,8 @@ class InsideStoreActivity : ComponentActivity() {
                                                                     .clip(RoundedCornerShape(16.dp)),
                                                                 context = this@InsideStoreActivity,
                                                                 imageUrl =
-                                                                (if (product.product.images.isNotEmpty()) SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-                                                                        SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
+                                                                (if (product.product.images.isNotEmpty()) CustomSingleton.remoteConfig.BASE_IMAGE_URL +
+                                                                        CustomSingleton.remoteConfig.SUB_FOLDER_PRODUCT +
                                                                         product.product.images.first().image else R.drawable.logo).toString(),
                                                                 okHttpClient = requestServer.createOkHttpClientWithCustomCert()
                                                             )
@@ -599,7 +527,7 @@ class InsideStoreActivity : ComponentActivity() {
                                                             RoundedCornerShape(12.dp)
                                                         )
                                                         .clickable {
-
+                                                            CustomSingleton.otherProducts = productViews.value
                                                             goToAddToCart(product)
                                                         }) {
                                                     Row(
@@ -622,8 +550,8 @@ class InsideStoreActivity : ComponentActivity() {
                                                                     .size(100.dp)
                                                                     .padding(5.dp),
                                                                 context = this@InsideStoreActivity,
-                                                                imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-                                                                        SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
+                                                                imageUrl = CustomSingleton.remoteConfig.BASE_IMAGE_URL +
+                                                                        CustomSingleton.remoteConfig.SUB_FOLDER_PRODUCT +
                                                                         product.product.images.first().image,
                                                                 okHttpClient = requestServer.createOkHttpClientWithCustomCert()
                                                             )
@@ -679,8 +607,8 @@ class InsideStoreActivity : ComponentActivity() {
 //                                                            .size(100.dp)
 //                                                            .padding(5.dp),
 //                                                        context = this@InsideStoreActivity,
-//                                                        imageUrl = SingletonRemoteConfig.remoteConfig.BASE_IMAGE_URL +
-//                                                                SingletonRemoteConfig.remoteConfig.SUB_FOLDER_PRODUCT +
+//                                                        imageUrl = CustomSingleton.remoteConfig.BASE_IMAGE_URL +
+//                                                                CustomSingleton.remoteConfig.SUB_FOLDER_PRODUCT +
 //                                                                product.product.images.first().image,
 //                                                        okHttpClient = requestServer.createOkHttpClientWithCustomCert()
 //                                                    )
@@ -718,15 +646,40 @@ class InsideStoreActivity : ComponentActivity() {
         }
     }
 
-    private fun read(onSuccess:()->Unit) {
-        if (store.typeId == 1) {
-            Log.e("shared Store",store.storeConfig!!.storeIdReference.toString())
-            SingletonHome.initHome(store.storeConfig!!.storeIdReference.toString(),onSuccess)
-        } else {
-            Log.e("custom Store",store.id.toString())
-            SingletonHome.initHome(store.id.toString(),onSuccess)
+    private fun filterHome(h: Home) {
+        if (CustomSingleton.isSharedStore()){
+            home = h.copy(
+                storeCategories = h.storeCategories.filterNot { it.id in CustomSingleton.selectedStore!!.storeConfig!!.categories },
+                storeSections = h.storeSections.filterNot { it.id in CustomSingleton.selectedStore!!.storeConfig!!.sections },
+                storeNestedSections = h.storeNestedSections.filterNot { it.id in CustomSingleton.selectedStore!!.storeConfig!!.nestedSections }
+            )
+            Log.e("rrr111",home.toString())
+        }else{
+            home = h
+            Log.e("rrr22",home.toString())
         }
+        Log.e("rrr33",home.toString())
+        if (home!!.storeCategories.isNotEmpty() && home!!.storeSections.isNotEmpty() && home!!.storeNestedSections.isNotEmpty()){
+            selectedCategory.value = home!!.storeCategories.first ()
+            selectedSection.value = home!!.storeSections.first {it.storeCategoryId == selectedCategory.value!!.id }
+            selectedStoreNestedSection.value = home!!.storeNestedSections.first {it.storeSectionId == selectedSection.value!!.id}
+//            isDropDownExpanded.value = false
+            productViews.value = emptyList()
+            readProducts()
+            isEmptyComponent =false
+        }
+//        home = h
     }
+
+//    private fun read(onSuccess:()->Unit) {
+//        if (store.typeId == 1) {
+//            Log.e("shared Store",store.storeConfig!!.storeIdReference.toString())
+//            SingletonHome.initHome(store.storeConfig!!.storeIdReference.toString(),onSuccess)
+//        } else {
+//            Log.e("custom Store",store.id.toString())
+//            SingletonHome.initHome(store.id.toString(),onSuccess)
+//        }
+//    }
 
     fun readProducts(){
         if (!isLoadingLinear)
@@ -763,12 +716,26 @@ class InsideStoreActivity : ComponentActivity() {
                 }
             }
 
-            if (!isLoadingLinear){
-                stateControllerProducts.successState()
-            }else{
-                isLoadingLinear = false
-            }
+            if(CustomSingleton.isSharedStore()){
+                readCustomPrices({
+                    stateController.errorStateRead(it)
+                }){
+                    customPrices = it
 
+                    processCustomPrices()
+                    if (!isLoadingLinear){
+                        stateControllerProducts.successState()
+                    }else{
+                        isLoadingLinear = false
+                    }
+                }
+            }else{
+                if (!isLoadingLinear){
+                    stateControllerProducts.successState()
+                }else{
+                    isLoadingLinear = false
+                }
+            }
         }
     }
 //    fun readProducts(){
@@ -872,6 +839,13 @@ class InsideStoreActivity : ComponentActivity() {
         intent.putExtra("product", MyJson.MyJson.encodeToString(s))
         startActivity(intent)
     }
+    private fun goToStoreInfo() {
+        val intent = Intent(
+            this,
+            StoreInfoActivity::class.java
+        )
+        startActivity(intent)
+    }
 
 
     @Composable
@@ -910,7 +884,7 @@ class InsideStoreActivity : ComponentActivity() {
     private fun readHome(storeId: String, onSuccess: () -> Unit) {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart("storeId",store.id.toString()).build()
+            .addFormDataPart("storeId",CustomSingleton.selectedStore!!.id.toString()).build()
 //        if (store.typeId == 1) {
 //            body.addFormDataPart("storeId",store.storeConfig!!.storeIdReference.toString())
 //        } else {
@@ -955,29 +929,12 @@ class InsideStoreActivity : ComponentActivity() {
         }
 
     }
-    private fun mainInit() {
-        if (!requestServer.serverConfig.isSetSubscribeApp()) {
-            subscribeToAppTopic()
-        }
-        if (!requestServer.serverConfig.isSetRemoteConfig()) {
-            stateController.startRead()
-            requestServer.initVarConfig({
-                stateController.errorStateRead("enable get remote config")
-            }) {
-                //                stateController.successState()
-                //                Log.e("serverConfig",SingletonRemoteConfig.remoteConfig.toString())
-                SingletonRemoteConfig.remoteConfig = requestServer.serverConfig.getRemoteConfig()
-                checkTokenToRead()
-            }
-        } else {
-            checkTokenToRead()
-        }
-    }
+
     private fun checkTokenToRead() {
         if (!aToken.isSetAccessToken()) {
             gotoLogin()
         }else{
-            initHome(store!!.id.toString()){
+            initHome(CustomSingleton.selectedStore!!.id.toString()){
                 if (home!!.storeCategories.isNotEmpty() && home!!.storeSections.isNotEmpty() && home!!.storeNestedSections.isNotEmpty()){
                     Log.e("dfee666",isEmptyComponent.toString())
                     selectedCategory.value = home!!.storeCategories.first()
@@ -996,15 +953,50 @@ class InsideStoreActivity : ComponentActivity() {
         startActivity(intent)
         finish()
     }
-    private fun subscribeToAppTopic() {
-        val appId = "app_2"
-        Firebase.messaging.subscribeToTopic(appId)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    requestServer.serverConfig.setSubscribeApp(appId)
-                    Log.e("subsecribed",appId)
-                }
-            }
+
+    fun readCustomPrices(onFail: (data: String) -> Unit,onSuccess: (data: List<CustomPrice>) -> Unit){
+        if (!isLoadingLinear)
+            stateControllerProducts.startRead()
+
+        val body = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("storeId",CustomSingleton.selectedStore!!.id.toString())
+            .build()
+
+        requestServer.request2(body,"getCustomPrices",{code,fail->
+            onFail(fail)
+        }
+        ){data->
+
+            val result:List<CustomPrice> =
+                MyJson.IgnoreUnknownKeys.decodeFromString(
+                    data
+                )
+            onSuccess(result)
+        }
     }
+    private fun processCustomPrices() {
+        if (customPrices != null) {
+            productViews.value = productViews.value.map { view ->
+                val products = view.products.map { product ->
+                    // Update the products of each store product
+                    val updatedOptions = product.options.map { option ->
+//                        Log.e("ffff2334",customPrice.toString())
+                        val customPrice =
+                            customPrices!!.find { it.storeProductId == option.storeProductId }
+                        if (customPrice != null) {
+                            Log.e("ffff",customPrice.toString())
+                            option.copy(price = customPrice.price)
+                        } else {
+                            option
+                        }
+                    }
+                    product.copy(options = updatedOptions)
+                }
+                view.copy(products = products)
+            }
+        }
+    }
+    private var customPrices by mutableStateOf<List<CustomPrice>?>(null)
 }
 

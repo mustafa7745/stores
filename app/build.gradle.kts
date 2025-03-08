@@ -74,5 +74,6 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.maps.compose)
     implementation (libs.android.maps.utils)
+    implementation("com.google.firebase:firebase-inappmessaging-display")
 
 }

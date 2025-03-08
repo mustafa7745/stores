@@ -13,8 +13,7 @@ class ServerConfig {
     fun setRemoteConfig(data:String){
         getStorage.setData(remoteConfig, data)
     }
-    fun getRemoteConfig(): VarRemoteConfig {
-
+    fun getRemoteConfig(): RemoteConfigModel {
         return MyJson.IgnoreUnknownKeys.decodeFromString(getStorage.getData(remoteConfig))
     }
     fun getDate(): LocalDateTime? {

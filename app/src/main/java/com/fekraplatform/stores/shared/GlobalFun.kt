@@ -22,6 +22,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,9 +36,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
@@ -47,6 +52,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
@@ -100,7 +107,7 @@ fun MainCompose1(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = padding),
+            .padding(top = padding).safeDrawingPadding(),
 //        verticalArrangement = verticalArrangement,
 //        horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -232,10 +239,10 @@ fun CustomImageView(
 }
 @Composable
 fun CustomImageViewUri(
-    context: Context,
-    imageUrl: Uri,
+    imageUrl: Any,
     modifier: Modifier = Modifier,
-    contentDescription: String? = null
+    contentDescription: String? = null,
+       contentScale: ContentScale = ContentScale.Fit
 ) {
     // Create ImageLoader with OkHttpClient
 //    val imageLoader = ImageLoader.Builder(context)
@@ -267,7 +274,7 @@ fun CustomImageViewUri(
 //        imageLoader = imageLoader,
         contentDescription = contentDescription,
         modifier = modifier.fillMaxSize(),
-        contentScale = ContentScale.Fit
+        contentScale = contentScale
     )
 }
 
@@ -281,35 +288,35 @@ fun getRemoteConfig(): FirebaseRemoteConfig {
 }
 
 
-fun builderForm(token:String): MultipartBody.Builder {
-    val appInfoMethod = AppInfoMethod()
-    return MultipartBody.Builder()
-        .setType(MultipartBody.FORM)
-        .addFormDataPart("sha", appInfoMethod.getAppSha())
-        .addFormDataPart("appToken", token)
-        .addFormDataPart("packageName", appInfoMethod.getAppPackageName())
-        .addFormDataPart("deviceId", appInfoMethod.getDeviceId().toString())
-        .addFormDataPart("model", Build.MODEL)
-        .addFormDataPart("version", Build.VERSION.RELEASE)
-}
-fun builderForm2(): MultipartBody.Builder {
-    val appInfoMethod = AppInfoMethod()
-    return MultipartBody.Builder()
-        .setType(MultipartBody.FORM)
-        .addFormDataPart("sha", appInfoMethod.getAppSha())
-        .addFormDataPart("packageName", appInfoMethod.getAppPackageName())
-        .addFormDataPart("deviceId", appInfoMethod.getDeviceId().toString())
-        .addFormDataPart("model", Build.MODEL)
-        .addFormDataPart("version", Build.VERSION.RELEASE)
-}
+//fun builderForm(token:String): MultipartBody.Builder {
+//    val appInfoMethod = AppInfoMethod()
+//    return MultipartBody.Builder()
+//        .setType(MultipartBody.FORM)
+//        .addFormDataPart("sha", appInfoMethod.getAppSha())
+//        .addFormDataPart("appToken", token)
+//        .addFormDataPart("packageName", appInfoMethod.getAppPackageName())
+//        .addFormDataPart("deviceId", appInfoMethod.getDeviceId().toString())
+//        .addFormDataPart("model", Build.MODEL)
+//        .addFormDataPart("version", Build.VERSION.RELEASE)
+//}
+//fun builderForm2(): MultipartBody.Builder {
+//    val appInfoMethod = AppInfoMethod()
+//    return MultipartBody.Builder()
+//        .setType(MultipartBody.FORM)
+//        .addFormDataPart("sha", appInfoMethod.getAppSha())
+//        .addFormDataPart("packageName", appInfoMethod.getAppPackageName())
+//        .addFormDataPart("deviceId", appInfoMethod.getDeviceId().toString())
+//        .addFormDataPart("model", Build.MODEL)
+//        .addFormDataPart("version", Build.VERSION.RELEASE)
+//}
 
-fun builderForm3(): MultipartBody.Builder {
-    val appInfoMethod = AppInfoMethod()
-    return MultipartBody.Builder()
-        .setType(MultipartBody.FORM)
-        .addFormDataPart("accessToken", AToken().getAccessToken().token)
-        .addFormDataPart("deviceId", appInfoMethod.getDeviceId().toString())
-}
+//fun builderForm3(): MultipartBody.Builder {
+//    val appInfoMethod = AppInfoMethod()
+//    return MultipartBody.Builder()
+//        .setType(MultipartBody.FORM)
+//        .addFormDataPart("accessToken", AToken().getAccessToken().token)
+//        .addFormDataPart("deviceId", appInfoMethod.getDeviceId().toString())
+//}
 
 fun getCurrentDate(): LocalDateTime {
     return LocalDateTime.now()
@@ -332,7 +339,7 @@ RoundedCornerShape(12.dp)),
             modifier = modifierBox
 
         ){
-            Column {
+            Column(verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
                 content()
             }
 
@@ -451,40 +458,54 @@ fun ADControll(product: Product, option: ProductOption) {
                 RoundedCornerShape(
                     16.dp
                 )
-            ),
+            ).clickable {
+                if (!SingletonCart.ifOptionInCart(CustomSingleton.selectedStore!!,product, option)){
+                    SingletonCart.addProductToCart(CustomSingleton.selectedStore!!,product, option)
+                }
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconAdd {
-            // For devices running API 26 and above, use the VibrationEffect API
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-
-                vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                // For older devices, use the simple vibrate method
-                vibrator.vibrate(50) // Vibrate for 100 milliseconds
+        if (!SingletonCart.ifOptionInCart(CustomSingleton.selectedStore!!,product, option)) {
+            Text("اضافة الى السلة", modifier = Modifier.padding(start = 2.dp, end = 2.dp), fontSize = 12.sp)
+        CustomIcon3(Icons.Default.ShoppingCart) {
+            if (!SingletonCart.ifOptionInCart(CustomSingleton.selectedStore!!,product, option)){
+                SingletonCart.addProductToCart(CustomSingleton.selectedStore!!,product, option)
             }
-            SingletonCart.addProductToCart(SingletonStores.selectedStore,product, option)
         }
+        }else{
+            IconAdd {
+                // For devices running API 26 and above, use the VibrationEffect API
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
 
-        Text(SingletonCart.countOptionProduct( SingletonStores.selectedStore,product, option).toString())
-
-        IconMinus {
-
-            // For devices running API 26 and above, use the VibrationEffect API
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-
-                vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                // For older devices, use the simple vibrate method
-                vibrator.vibrate(50) // Vibrate for 100 milliseconds
+                    vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    // For older devices, use the simple vibrate method
+                    vibrator.vibrate(50) // Vibrate for 100 milliseconds
+                }
+                SingletonCart.addProductToCart(CustomSingleton.selectedStore!!,product, option)
             }
-            SingletonCart.decrement(SingletonStores.selectedStore, product, option)
+
+            Text(SingletonCart.countOptionProduct( CustomSingleton.selectedStore!!,product, option).toString())
+
+            IconMinus {
+
+                // For devices running API 26 and above, use the VibrationEffect API
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+
+                    vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    // For older devices, use the simple vibrate method
+                    vibrator.vibrate(50) // Vibrate for 100 milliseconds
+                }
+                SingletonCart.decrement(CustomSingleton.selectedStore!!, product, option)
+            }
         }
 
-        if (SingletonCart.ifOptionInCart(SingletonStores.selectedStore,product, option))
-        IconRemove {
-            SingletonCart.removeProductOptionFromCart(SingletonStores.selectedStore,product, option)
-        }
+
+//        if (SingletonCart.ifOptionInCart(CustomSingleton.selectedStore!!,product, option))
+//        IconRemove {
+//            SingletonCart.removeProductOptionFromCart(CustomSingleton.selectedStore!!,product, option)
+//        }
     }
 }
 @Composable
@@ -539,9 +560,9 @@ fun ReadMoreText(productDescription: String) {
     }
 }
 
-object SingletonStores{
-    lateinit var selectedStore:Store
-}
+//object CustomSingleton{
+//    lateinit var selectedStore:Store
+//}
 
 fun formatNumber(number: Int): String {
     return when {
@@ -552,7 +573,7 @@ fun formatNumber(number: Int): String {
 }
 
 object SingletonRemoteConfig{
-    lateinit var remoteConfig: VarRemoteConfig
+    lateinit var remoteConfig: RemoteConfigModel
 }
 
 @Composable
@@ -680,4 +701,200 @@ fun MyTextField(
                 )
             )
     )
+}
+
+
+private fun sharedBuilderForm(): MultipartBody.Builder {
+    val appInfoMethod = AppInfoMethod()
+    return MultipartBody.Builder()
+        .setType(MultipartBody.FORM)
+//        .addFormDataPart("sha", appInfoMethod.getAppSha())
+        .addFormDataPart("sha", appInfoMethod.getAppSha())
+        .addFormDataPart("packageName", appInfoMethod.getAppPackageName())
+        .addFormDataPart("deviceId", appInfoMethod.getDeviceId().toString())
+}
+fun builderForm0(): MultipartBody.Builder {
+    return sharedBuilderForm()
+        .addFormDataPart("model", Build.MODEL)
+        .addFormDataPart("version", Build.VERSION.RELEASE)
+}
+
+fun builderForm1(token:String): MultipartBody.Builder {
+    return builderForm0()
+        .addFormDataPart("appToken", token)
+}
+
+fun builderForm2(): MultipartBody.Builder {
+    return sharedBuilderForm()
+        .addFormDataPart("accessToken",AToken().getAccessToken().token)
+}
+fun builderForm3(): MultipartBody.Builder {
+    return sharedBuilderForm()
+        .addFormDataPart("storeId",CustomSingleton.selectedStore!!.id.toString())
+        .addFormDataPart("accessToken",AToken().getAccessToken().token)
+}
+
+
+@Composable
+fun CustomIcon2(imageVector: ImageVector, modifierIcon: Modifier = Modifier, border:Boolean=false, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        val modifier = if (border) Modifier
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.primary,
+                RoundedCornerShape(
+                    16.dp
+                )
+            )
+            .clip(
+                RoundedCornerShape(
+                    16.dp
+                )
+            )
+        else Modifier
+        Icon(
+            modifier = modifierIcon,
+            imageVector = imageVector,
+            contentDescription = ""
+        )
+    }
+}
+@Composable
+fun CustomIcon3(imageVector: ImageVector, modifierIcon: Modifier = Modifier, modifierButton: Modifier = Modifier, borderColor: Color = MaterialTheme.colorScheme.primary, tint: Color = LocalContentColor.current, border:Boolean=false, onClick: () -> Unit) {
+    val modifier = if (border) modifierButton
+        .border(
+            1.dp,
+            borderColor,
+           CircleShape
+        )
+        .clip(
+           CircleShape
+        )
+    else modifierButton
+    IconButton(
+        modifier = modifier,
+        onClick = onClick) {
+        Box {
+            Icon(
+                modifier = modifierIcon,
+                imageVector = imageVector,
+                contentDescription = "",
+                tint = tint
+            )
+//            Text(modifier =  Modifier.align(Alignment.TopEnd) .background(MaterialTheme.colorScheme.primary, CircleShape) // خلفية دائرية للـ Badge
+//            , color = Color.White, fontSize = 10.sp, text = "3")
+        }
+
+    }
+}
+
+@Composable
+fun CustomCard2(modifierCard: Modifier = Modifier
+    .fillMaxWidth()
+    .padding(8.dp)
+    .border(
+        1.dp, Color.Gray,
+        RoundedCornerShape(12.dp)
+    ),
+
+                modifierBox: Modifier,
+                content: @Composable() (ColumnScope.() -> Unit)){
+    Card(
+        colors  = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        modifier =  modifierCard
+    ){
+        Box (
+            modifier = modifierBox
+
+        ) {
+            Column {
+                content()
+            }
+
+        }
+    }
+}
+
+
+@Composable
+fun CustomImageView1(
+    imageUrl: String,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    contentScale: ContentScale = ContentScale.Crop,
+    isLoading:Boolean = true
+) {
+    // Create ImageLoader with OkHttpClient
+//    val imageLoader = ImageLoader.Builder(MyApplication.AppContext)
+//        .dis(imageUrl) // Use URL as disk cache key
+//        .memoryCacheKey(imageUrl) // Use URL as memory cache key
+//        .build()
+////        .okHttpClient(okHttpClient)
+//        .build()
+
+    // Display the image using AsyncImage
+    SubcomposeAsyncImage(
+        error = {
+            Column(
+                Modifier,
+//                Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                AsyncImage(
+                    model = R.drawable.logo,
+                    contentDescription = null,
+                    contentScale = contentScale
+
+                )
+            }
+        },
+        loading = {
+            if (isLoading)
+                CircularProgressIndicator()
+        },
+        model = imageUrl,
+
+//        imageLoader = imageLoader,
+        contentDescription = contentDescription,
+        modifier = modifier.fillMaxSize(),
+        contentScale = contentScale
+    )
+}
+
+@Composable
+fun MyHeader(onBack:()->Unit,otherSide:@Composable ()->Unit = {},content: @Composable ()->Unit){
+    CustomCard2(modifierBox = Modifier) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row (
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CustomIcon(Icons.AutoMirrored.Default.ArrowBack, border = true) {
+                    onBack()
+                }
+                content()
+            }
+            otherSide()
+
+        }
+    }
+}
+
+@Composable
+fun CustomRow(content: @Composable() (RowScope.() -> Unit)){
+    Row  (Modifier.fillMaxWidth().padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ){
+
+        content()
+    }
 }

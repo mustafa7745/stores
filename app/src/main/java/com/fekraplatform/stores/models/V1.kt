@@ -1,25 +1,4 @@
 package com.fekraplatform.stores.models
-
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.serialization.Serializable
 
 
@@ -34,7 +13,11 @@ data class Store(
     val stars:Int,
     val reviews:Int,
     val subscriptions:Int,
-    var storeConfig:StoreConfig?
+    val distance:Double?,
+    var storeConfig:StoreConfig?,
+    val deliveryPrice:Double,
+    val currencyId:Int,
+    val currencyName: String,
 )
 
 @Serializable
@@ -58,6 +41,12 @@ data class Home(
     var storeCategories: List<StoreCategory>,
     var storeSections:List<StoreSection>,
     var storeNestedSections:List<StoreNestedSection>
+)
+
+@Serializable
+data class StoreHome(
+    val storeId:Int,
+    var home: Home,
 )
 
 @Serializable
@@ -102,6 +91,12 @@ data class Home34(
     val csps:List<Scp>
 )
 
+@Serializable
+data class CustomPrice(
+    val id: Int,
+    val storeProductId: Int,
+    val price:String,
+)
 
 
 @Serializable
